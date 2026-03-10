@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: amortization
+
+  # ── MySQL DataSource ──────────────────────────────────────────
+  datasource:
+    url: jdbc:mysql://localhost:3306/amortization_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: Yosef@123        # ← change to your MySQL password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # ── JPA / Hibernate ──────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
