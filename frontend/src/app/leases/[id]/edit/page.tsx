@@ -152,10 +152,9 @@ function EditLeasePageInner() {
                         <select value={form.categoryOfRent ?? ""} onChange={e => set("categoryOfRent", e.target.value)}>
                             <option value="">— Select —</option>
                             <option>ATM</option>
-                            <option>Outline &amp; city</option>
-                            <option>Branch</option>
-                            <option>Office</option>
-                            <option>Other</option>
+                            <option>Outline</option>
+                            <option>City</option>
+
                         </select>
                     </div>
                 </div>

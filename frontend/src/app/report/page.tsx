@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { AmortizationReportRow, fetchReport, saveEntry } from "@/lib/api";
 
 const MONTHS = [
@@ -42,7 +42,7 @@ export default function ReportPage() {
         entryDay: string;     // 1-31 or empty
     }>>({});
 
-    const load = useCallback(async () => {
+    const load = async () => {
         setLoading(true); setError("");
         try {
             const data = await fetchReport(month, year, category || undefined);
@@ -62,12 +62,25 @@ export default function ReportPage() {
             setEdits(init);
         } catch { setError("Failed to load report. Is the backend running?"); }
         finally { setLoading(false); }
-    }, [month, year, category]);
-
-    useEffect(() => { load(); }, [load]);
+    };
 
     const handleEdit = (key: string, field: string, value: string) =>
         setEdits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+
+    const calcPrepaid = async (row: AmortizationReportRow) => {
+        const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+        try {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
+            const res = await fetch(
+                `${API_BASE}/amortization/prepaid-suggestion?leaseId=${row.leaseContractId}&month=${month}&year=${year}&stampDuty=${row.stampDutyRow}`
+            );
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+            handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
+        } catch {
+            alert("Could not calculate prepaid suggestion. Please try again.");
+        }
+    };
 
     const handleSave = async (row: AmortizationReportRow) => {
         const key = `${row.leaseContractId}-${row.stampDutyRow}`;
@@ -125,6 +138,15 @@ export default function ReportPage() {
                     <option value="">All Categories</option>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
+                <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={load}
+                    disabled={loading}
+                    style={{ whiteSpace: "nowrap" }}
+                >
+                    {loading ? "⏳ Generating…" : "📊 Generate Report"}
+                </button>
                 {/* Search */}
                 <input
                     type="search"
@@ -180,6 +202,7 @@ export default function ReportPage() {
                                 <th style={{ background: "#d1fae5", color: "#065f46" }}>Rent Expense – {MONTHS[month - 1]} {year} ✏️</th>
                                 <th>Total</th>
                                 <th style={{ background: "#fef9c3", color: "#713f12" }}>Due for {MONTHS[month - 1]} {year} ✏️</th>
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>Rent Expense − Due</th>
                                 <th style={{ background: "#e0f2fe", color: "#075985" }}>Prepaid Office Rent ✏️</th>
                                 <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th>
                                 <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th>
@@ -229,7 +252,7 @@ export default function ReportPage() {
                                             <td className="editable-cell" style={{ background: "#f0fdf4" }}>
                                                 {row.rentExpenseOverridden && <span title="Overridden" style={{ fontSize: "0.7rem", color: "#f59e0b" }}>✏️ </span>}
                                                 <input type="number" step="0.01"
-                                                    placeholder={fmt(row.monthlyRentWithVat) ?? "auto"}
+                                                    placeholder={fmt(row.rentExpenseForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.rentExpense}
                                                     onChange={e => handleEdit(key, "rentExpense", e.target.value)} />
@@ -248,11 +271,30 @@ export default function ReportPage() {
                                                     onChange={e => handleEdit(key, "due", e.target.value)} />
                                             </td>
 
-                                            {/* ✏️ Editable: Prepaid Office Rent */}
+                                            {/* Rent Expense − Due for Month (read-only) */}
+                                            <td className="number" style={{ background: "#f0fdf4", fontWeight: 600, color: "#065f46" }}>
+                                                {fmt(row.rentMinusDue)}
+                                            </td>
+
+                                            {/* ✏️ Editable: Prepaid Office Rent + Auto-Calc button */}
                                             <td className="editable-cell" style={{ background: "#eff6ff" }}>
-                                                <input type="number" step="0.01"
-                                                    value={edit.prepaid}
-                                                    onChange={e => handleEdit(key, "prepaid", e.target.value)} />
+                                                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                                    <input type="number" step="0.01"
+                                                        style={{ flex: 1 }}
+                                                        value={edit.prepaid}
+                                                        onChange={e => handleEdit(key, "prepaid", e.target.value)} />
+                                                    <button
+                                                        onClick={() => calcPrepaid(row)}
+                                                        title="Auto-calculate Prepaid Rent for this month"
+                                                        style={{
+                                                            fontSize: "0.7rem", padding: "2px 6px",
+                                                            background: "#3b82f6", color: "#fff",
+                                                            border: "none", borderRadius: 4, cursor: "pointer",
+                                                            whiteSpace: "nowrap"
+                                                        }}>
+                                                        Calc
+                                                    </button>
+                                                </div>
                                             </td>
 
                                             {/* ✏️ Editable: Additional Expense */}
