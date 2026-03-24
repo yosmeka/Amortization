@@ -39,6 +39,7 @@ export default function BulkUploadPage() {
         <div>
             <div className="page-header">
                 <h2>📊 Bulk Upload Lease Contracts</h2>
+                console.log("API Base URL:");
                 <p>Upload an Excel (.xlsx) file to register multiple lease contracts at once.</p>
             </div>
 
