@@ -13,6 +13,7 @@ export default function Navbar() {
                 <Link href="/leases/new" className={path === "/leases/new" ? "active" : ""}>+ Register Contract</Link>
                 <Link href="/leases/upload" className={path === "/leases/upload" ? "active" : ""}>📊 Bulk Upload</Link>
                 <Link href="/report" className={path === "/report" ? "active" : ""}>Monthly Report</Link>
+                <Link href="/gl-report" className={path === "/gl-report" ? "active" : ""}>📋 GL Ticket</Link>
             </nav>
         </div>
     );

@@ -94,4 +94,8 @@ public class AmortizationReportRow {
 
     // Is this the first month of the contract? (to flag pro-rated calculation)
     private boolean firstMonth;
+
+    // === New: Rent Expense for Month − Due for Month ===
+    // Uses rentExpenseForMonth (prorated in first month / merged in overlap month)
+    private BigDecimal rentMinusDue;
 }

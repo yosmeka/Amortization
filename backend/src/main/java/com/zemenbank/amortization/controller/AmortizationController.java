@@ -54,6 +54,21 @@ public class AmortizationController {
         return ResponseEntity.ok(saved);
     }
 
+    /**
+     * GET /api/amortization/prepaid-suggestion?leaseId=1&month=12&year=2026[&stampDuty=true]
+     * Returns the suggested Prepaid Office/StampDuty Rent for the given month.
+     * Formula: TotalPaymentPaidToDate(rounded) − Σ(dueForMonth + rentMinusDue) of prior months
+     */
+    @GetMapping("/prepaid-suggestion")
+    public ResponseEntity<java.util.Map<String, Object>> getPrepaidSuggestion(
+            @RequestParam Long leaseId,
+            @RequestParam int month,
+            @RequestParam int year,
+            @RequestParam(required = false, defaultValue = "false") boolean stampDuty) {
+        java.math.BigDecimal suggestion = amortizationService.calculatePrepaidSuggestion(leaseId, stampDuty, month, year);
+        return ResponseEntity.ok(java.util.Map.of("suggestedPrepaid", suggestion));
+    }
+
     @Data
     public static class EntryRequest {
         private Long leaseId;

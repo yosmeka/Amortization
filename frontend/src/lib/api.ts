@@ -82,6 +82,7 @@ export interface AmortizationReportRow {
     entryDay: number;
     rentExpenseOverridden: boolean;
     dueForMonthOverridden: boolean;
+    rentMinusDue: number;
 
 }
 
