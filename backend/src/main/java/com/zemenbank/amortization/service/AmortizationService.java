@@ -296,6 +296,14 @@ public class AmortizationService {
                 // Outstanding end: oldPrior + prepaid − mergedRent (drives next month's chain)
                 BigDecimal rawEnd = oldPrior.add(prepaid).subtract(mergedRent).setScale(SCALE, RM);
                 officeRow.setOutstandingBalanceEndOfMonth(rawEnd.max(BigDecimal.ZERO).setScale(SCALE, RM));
+
+                // ── Recalculate rentMinusDue with the corrected overlap values ──
+                // buildRow computed rentMinusDue BEFORE we replaced the expense/due values,
+                // so we must recompute it here.
+                // For overlap months: use mergedRent as the base, even when dueForMonth == 0
+                // (unlike normal months where due==0 means no subtraction is needed).
+                BigDecimal overlapDue = officeRow.getDueForMonth();
+                officeRow.setRentMinusDue(mergedRent.subtract(overlapDue).setScale(SCALE, RM));
             }
 
             if (officeExpired) {
