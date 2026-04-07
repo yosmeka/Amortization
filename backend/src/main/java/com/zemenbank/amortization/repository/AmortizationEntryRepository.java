@@ -72,4 +72,20 @@ public interface AmortizationEntryRepository extends JpaRepository<AmortizationE
             @Param("leaseId") Long leaseId,
             @Param("year") int year,
             @Param("month") int month);
+
+    /**
+     * Returns the FIRST saved SD entry where prepaidOfficeRent > 0
+     * for the given stamp-duty contract, at or before (month, year).
+     * Used to detect rate-switch point for renewed stamp duty contracts.
+     */
+    @Query("SELECT e FROM AmortizationEntry e " +
+           "WHERE e.stampDutyContract.id = :sdId " +
+           "AND e.stampDuty = true " +
+           "AND e.prepaidOfficeRent > 0 " +
+           "AND (e.reportYear < :year OR (e.reportYear = :year AND e.reportMonth <= :month)) " +
+           "ORDER BY e.reportYear ASC, e.reportMonth ASC")
+    List<AmortizationEntry> findFirstPrepaidSdEntryAtOrBefore(
+            @Param("sdId") Long sdId,
+            @Param("year") int year,
+            @Param("month") int month);
 }
