@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\RenewalPrefillDto.java
 C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\controller\LeaseContractController.java
 C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\LeaseContractRequest.java
@@ -14,3 +15,21 @@ C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank
 C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\AmortizationApplication.java
 C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\LeaseContractRepository.java
 C:\Users\helina.bikes\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\StampDutyContractRepository.java
+=======
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\entity\LeaseContract.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\entity\StampDutyContract.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\LeaseContractRequest.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\BulkUploadResult.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\entity\AmortizationEntry.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\service\ExcelImportService.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\RenewalPrefillDto.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\controller\LeaseContractController.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\StampDutyContractRepository.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\AmortizationReportRow.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\LeaseContractRepository.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\AmortizationEntryRepository.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\AmortizationApplication.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\controller\AmortizationController.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\config\CorsConfig.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\service\AmortizationService.java
+>>>>>>> 05582b5b6906aed6da8e8471beef53cdcb64890f

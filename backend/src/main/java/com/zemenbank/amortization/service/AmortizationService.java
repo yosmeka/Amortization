@@ -34,7 +34,7 @@ public class AmortizationService {
     private static final RoundingMode RM = RoundingMode.HALF_UP;
 
     // =========================================================
-    //  REGISTRATION
+    // REGISTRATION
     // =========================================================
 
     @Transactional
@@ -65,7 +65,8 @@ public class AmortizationService {
                 .paymentModality(req.getPaymentModality())
                 .discountRate(req.getDiscountRate())
                 .initialOutstandingBalance(req.getInitialOutstandingBalance() != null
-                        ? req.getInitialOutstandingBalance() : BigDecimal.ZERO)
+                        ? req.getInitialOutstandingBalance()
+                        : BigDecimal.ZERO)
                 .initialOutstandingBalanceMonth(req.getInitialOutstandingBalanceMonth())
                 .initialOutstandingBalanceYear(req.getInitialOutstandingBalanceYear())
                 .hasStampDuty(req.isHasStampDuty())
@@ -81,13 +82,16 @@ public class AmortizationService {
                     .leaseContract(lease)
                     .meterSquare(sd.getMeterSquare() != null ? sd.getMeterSquare() : BigDecimal.ZERO)
                     .meterSquarePriceBeforeVat(sd.getMeterSquarePriceBeforeVat() != null
-                            ? sd.getMeterSquarePriceBeforeVat() : BigDecimal.ZERO)
+                            ? sd.getMeterSquarePriceBeforeVat()
+                            : BigDecimal.ZERO)
                     .vatRate(sd.getVatRate() != null ? sd.getVatRate() : new BigDecimal("0.15"))
                     .utilityPayment(sd.getUtilityPayment() != null ? sd.getUtilityPayment() : BigDecimal.ZERO)
                     .stampDutyFullPayment(sd.getStampDutyFullPayment() != null
-                            ? sd.getStampDutyFullPayment() : BigDecimal.ZERO)
+                            ? sd.getStampDutyFullPayment()
+                            : BigDecimal.ZERO)
                     .initialOutstandingBalance(sd.getInitialOutstandingBalance() != null
-                            ? sd.getInitialOutstandingBalance() : BigDecimal.ZERO)
+                            ? sd.getInitialOutstandingBalance()
+                            : BigDecimal.ZERO)
                     .initialOutstandingBalanceMonth(sd.getInitialOutstandingBalanceMonth())
                     .initialOutstandingBalanceYear(sd.getInitialOutstandingBalanceYear())
                     .paymentPaidToDate(sd.getPaymentPaidToDate())
@@ -100,7 +104,7 @@ public class AmortizationService {
     }
 
     // =========================================================
-    //  UPDATE (edit an existing lease contract)
+    // UPDATE (edit an existing lease contract)
     // =========================================================
 
     @Transactional
@@ -134,7 +138,8 @@ public class AmortizationService {
         lease.setPaymentModality(req.getPaymentModality());
         lease.setDiscountRate(req.getDiscountRate());
         lease.setInitialOutstandingBalance(req.getInitialOutstandingBalance() != null
-                ? req.getInitialOutstandingBalance() : BigDecimal.ZERO);
+                ? req.getInitialOutstandingBalance()
+                : BigDecimal.ZERO);
         lease.setInitialOutstandingBalanceMonth(req.getInitialOutstandingBalanceMonth());
         lease.setInitialOutstandingBalanceYear(req.getInitialOutstandingBalanceYear());
 
@@ -149,13 +154,16 @@ public class AmortizationService {
             }
             sd.setMeterSquare(sdReq.getMeterSquare() != null ? sdReq.getMeterSquare() : BigDecimal.ZERO);
             sd.setMeterSquarePriceBeforeVat(sdReq.getMeterSquarePriceBeforeVat() != null
-                    ? sdReq.getMeterSquarePriceBeforeVat() : BigDecimal.ZERO);
+                    ? sdReq.getMeterSquarePriceBeforeVat()
+                    : BigDecimal.ZERO);
             sd.setVatRate(sdReq.getVatRate() != null ? sdReq.getVatRate() : new BigDecimal("0.15"));
             sd.setUtilityPayment(sdReq.getUtilityPayment() != null ? sdReq.getUtilityPayment() : BigDecimal.ZERO);
             sd.setStampDutyFullPayment(sdReq.getStampDutyFullPayment() != null
-                    ? sdReq.getStampDutyFullPayment() : BigDecimal.ZERO);
+                    ? sdReq.getStampDutyFullPayment()
+                    : BigDecimal.ZERO);
             sd.setInitialOutstandingBalance(sdReq.getInitialOutstandingBalance() != null
-                    ? sdReq.getInitialOutstandingBalance() : BigDecimal.ZERO);
+                    ? sdReq.getInitialOutstandingBalance()
+                    : BigDecimal.ZERO);
             sd.setInitialOutstandingBalanceMonth(sdReq.getInitialOutstandingBalanceMonth());
             sd.setInitialOutstandingBalanceYear(sdReq.getInitialOutstandingBalanceYear());
             sd.setPaymentPaidToDate(sdReq.getPaymentPaidToDate());
@@ -173,7 +181,7 @@ public class AmortizationService {
     }
 
     // =========================================================
-    //  REPORT GENERATION for a given month/year
+    // REPORT GENERATION for a given month/year
     // =========================================================
 
     @Transactional
@@ -182,45 +190,55 @@ public class AmortizationService {
         List<AmortizationReportRow> rows = new ArrayList<>();
 
         LocalDate reportStart = LocalDate.of(year, month, 1);
-        LocalDate reportEnd   = reportStart.withDayOfMonth(reportStart.lengthOfMonth());
+        LocalDate reportEnd = reportStart.withDayOfMonth(reportStart.lengthOfMonth());
 
         // ── Superseded contracts ──────────────────────────────────────────────────
         // Old contract is superseded when a renewal's contractStartDate ≤ reportStart.
         java.util.Set<Long> supersededIds = leaseRepo.findSupersededContractIds(reportStart);
 
         // ── Overlap month pre-pass ────────────────────────────────────────────────
-        // An overlap occurs when a new (renewed) contract starts WITHIN the report month
+        // An overlap occurs when a new (renewed) contract starts WITHIN the report
+        // month
         // (contractStartDate is between reportStart and reportEnd, inclusive).
         // In that case:
-        //   • The old contract's partial rent (days 1 → paymentPaidToDate) is computed here.
-        //   • Its ID is added to overlapHidden so it won't get its own row.
-        //   • The partial rent is stored in overlapOldRents keyed by the NEW contract's ID,
-        //     so it can be added to the new contract's first-month prorated row.
+        // • The old contract's partial rent (days 1 → paymentPaidToDate) is computed
+        // here.
+        // • Its ID is added to overlapHidden so it won't get its own row.
+        // • The partial rent is stored in overlapOldRents keyed by the NEW contract's
+        // ID,
+        // so it can be added to the new contract's first-month prorated row.
         //
-        // Formula:  daysOld = paymentPaidToDate.getDayOfMonth()   (e.g. 24 for Oct-24)
-        //           oldPartial = oldMonthlyRent × daysOld / daysInMonth
+        // Formula: daysOld = paymentPaidToDate.getDayOfMonth() (e.g. 24 for Oct-24)
+        // oldPartial = oldMonthlyRent × daysOld / daysInMonth
         // NOTE: days 25-31 (7 days including day 25) belong to the new contract and are
-        //       already prorated correctly in buildRow via calcProratedRent.
-        java.util.Map<Long, BigDecimal> overlapOldRents        = new java.util.HashMap<>(); // newLeaseId → oldPartialRent (for expense display)
-        java.util.Map<Long, BigDecimal> overlapOldPrior        = new java.util.HashMap<>(); // newLeaseId → old contract's prior-month balance
-        java.util.Map<Long, BigDecimal> overlapOldMonthlyRent  = new java.util.HashMap<>(); // newLeaseId → old full monthly rent (for due formula)
-        java.util.Set<Long>             overlapHidden          = new java.util.HashSet<>();
+        // already prorated correctly in buildRow via calcProratedRent.
+        java.util.Map<Long, BigDecimal> overlapOldRents       = new java.util.HashMap<>(); // newLeaseId → office oldPartialRent
+        java.util.Map<Long, BigDecimal> overlapOldPrior       = new java.util.HashMap<>(); // newLeaseId → office old prior balance
+        java.util.Map<Long, BigDecimal> overlapOldMonthlyRent = new java.util.HashMap<>(); // newLeaseId → office old full MR
+        // Stamp duty equivalents
+        java.util.Map<Long, BigDecimal> sdOverlapOldRents       = new java.util.HashMap<>();
+        java.util.Map<Long, BigDecimal> sdOverlapOldPrior       = new java.util.HashMap<>();
+        java.util.Map<Long, BigDecimal> sdOverlapOldMonthlyRent = new java.util.HashMap<>();
+        java.util.Set<Long> overlapHidden = new java.util.HashSet<>();
 
         for (LeaseContract candidate : allLeases) {
-            if (candidate.getPreviousContractId() == null) continue;
+            if (candidate.getPreviousContractId() == null)
+                continue;
             LocalDate newStart = candidate.getContractStartDate();
-            if (newStart.isBefore(reportStart) || newStart.isAfter(reportEnd)) continue;
+            if (newStart.isBefore(reportStart) || newStart.isAfter(reportEnd))
+                continue;
 
             // The new contract starts this month → look for old contract ending this month
             leaseRepo.findById(candidate.getPreviousContractId()).ifPresent(oldContract -> {
                 LocalDate oldEnd = oldContract.getPaymentPaidToDate() != null
-                        ? oldContract.getPaymentPaidToDate() : oldContract.getContractEndDate();
+                        ? oldContract.getPaymentPaidToDate()
+                        : oldContract.getContractEndDate();
                 // Old contract must also end within this month to form the overlap
                 if (!oldEnd.isBefore(reportStart) && !oldEnd.isAfter(reportEnd)) {
-                    BigDecimal oldMR    = calcMonthlyRent(null, oldContract);
-                    int daysInMonth     = reportStart.lengthOfMonth();
-                    int daysOld         = oldEnd.getDayOfMonth(); // e.g. 24
-                    BigDecimal oldPart  = oldMR
+                    BigDecimal oldMR = calcMonthlyRent(null, oldContract);
+                    int daysInMonth = reportStart.lengthOfMonth();
+                    int daysOld = oldEnd.getDayOfMonth(); // e.g. 24
+                    BigDecimal oldPart = oldMR
                             .multiply(BigDecimal.valueOf(daysOld))
                             .divide(BigDecimal.valueOf(daysInMonth), SCALE, RM);
 
@@ -231,17 +249,32 @@ public class AmortizationService {
                     overlapHidden.add(oldContract.getId());
                     overlapOldRents.put(candidate.getId(), oldPart);
                     overlapOldPrior.put(candidate.getId(), oldPrior);
-                    overlapOldMonthlyRent.put(candidate.getId(), oldMR); // full old rate for due formula
+                    overlapOldMonthlyRent.put(candidate.getId(), oldMR);
+
+                    // ── Stamp duty overlap data (if old contract has SD) ─────────────────
+                    if (oldContract.isHasStampDuty() && oldContract.getStampDutyContract() != null) {
+                        StampDutyContract oldSd = oldContract.getStampDutyContract();
+                        BigDecimal oldSdMR   = calcMonthlyRent(oldSd, oldContract);
+                        BigDecimal oldSdPart = oldSdMR
+                                .multiply(BigDecimal.valueOf(daysOld))
+                                .divide(BigDecimal.valueOf(daysInMonth), SCALE, RM);
+                        BigDecimal oldSdPrior = resolveOutstandingPrior(oldContract, oldSd, true, month, year);
+                        sdOverlapOldRents.put(candidate.getId(), oldSdPart);
+                        sdOverlapOldPrior.put(candidate.getId(), oldSdPrior);
+                        sdOverlapOldMonthlyRent.put(candidate.getId(), oldSdMR);
+                    }
                 }
             });
         }
 
         for (LeaseContract lease : allLeases) {
             // ── Skip contracts superseded by a newer period ───────────────────────
-            if (supersededIds.contains(lease.getId())) continue;
+            if (supersededIds.contains(lease.getId()))
+                continue;
 
             // ── Skip old contracts hidden by overlap merging ──────────────────────
-            if (overlapHidden.contains(lease.getId())) continue;
+            if (overlapHidden.contains(lease.getId()))
+                continue;
 
             // ── Category filter ────────────────────────────────────────────────
             if (category != null && !category.isBlank()
@@ -254,9 +287,11 @@ public class AmortizationService {
                 continue;
             }
 
-            // ── Effective amortization end date = paymentPaidToDate (not contractEndDate) ──
+            // ── Effective amortization end date = paymentPaidToDate (not contractEndDate)
+            // ──
             LocalDate officeEffectiveEnd = lease.getPaymentPaidToDate() != null
-                    ? lease.getPaymentPaidToDate() : lease.getContractEndDate();
+                    ? lease.getPaymentPaidToDate()
+                    : lease.getContractEndDate();
 
             // Whether this contract's amortization period has ended before the report month
             boolean officeExpired = officeEffectiveEnd.isBefore(reportStart);
@@ -266,42 +301,48 @@ public class AmortizationService {
 
             // ── Overlap merge ──────────────────────────────────────────────────────────
             // For the overlap month the row always uses:
-            //   outstandingPrior  = old contract's prior-month balance (e.g. Sep 2026)
-            //   rentExpense       = oldPartialRent (days 1..oldEnd) + newProratedRent (days newStart..31)
-            //   due               = max(0, oldFullMonthlyRent − oldPrior)   ← user's specified formula
-            //   outstandingEnd    = max(0, oldPrior − oldFullMonthlyRent)
+            // outstandingPrior = old contract's prior-month balance (e.g. Sep 2026)
+            // rentExpense = oldPartialRent (days 1..oldEnd) + newProratedRent (days
+            // newStart..31)
+            // due = max(0, oldFullMonthlyRent − oldPrior) ← user's specified formula
+            // outstandingEnd = max(0, oldPrior − oldFullMonthlyRent)
             // We ALWAYS apply this — even if a saved override exists — because the overlap
             // fundamentally changes what the month represents.
             if (overlapOldRents.containsKey(lease.getId())) {
-                BigDecimal oldPrior      = overlapOldPrior.getOrDefault(lease.getId(), BigDecimal.ZERO);
-                BigDecimal oldFullMR     = overlapOldMonthlyRent.getOrDefault(lease.getId(), BigDecimal.ZERO);
-                BigDecimal oldPart       = overlapOldRents.get(lease.getId());
-                BigDecimal newProrate    = officeRow.getRentExpenseForMonth(); // prorated new days from buildRow
-                BigDecimal mergedRent    = newProrate.add(oldPart).setScale(SCALE, RM);
-                BigDecimal prepaid       = officeRow.getPrepaidOfficeRent();
+                BigDecimal oldPrior  = overlapOldPrior.getOrDefault(lease.getId(), BigDecimal.ZERO);
+                BigDecimal oldFullMR = overlapOldMonthlyRent.getOrDefault(lease.getId(), BigDecimal.ZERO);
+                BigDecimal oldPart   = overlapOldRents.get(lease.getId());
+                BigDecimal newProrate = officeRow.getRentExpenseForMonth(); // prorated new days from buildRow
+                BigDecimal mergedRent = newProrate.add(oldPart).setScale(SCALE, RM);
+                BigDecimal prepaid    = officeRow.getPrepaidOfficeRent();
 
-                // Set merged expense and prior balance
+                // ── Condition: which rent to show? ────────────────────────────────────
+                // • prepaid == 0 → no new contract payment yet → show OLD contract's full
+                //                  monthly rate only (do NOT merge in new contract days)
+                // • prepaid  > 0 → new contract payment entered → show MERGED sum (old
+                //                  partial days + new prorated days), current behaviour
+                boolean prepaidEntered = prepaid.compareTo(BigDecimal.ZERO) > 0;
+                BigDecimal effectiveRent = prepaidEntered ? mergedRent : oldFullMR;
+
                 officeRow.setOutstandingBalancePriorMonth(oldPrior);
-                officeRow.setRentExpenseForMonth(mergedRent);
-                officeRow.setRentExpenseOverridden(false); // display as the computed overlap value
+                officeRow.setRentExpenseForMonth(effectiveRent);
+                officeRow.setRentExpenseOverridden(false);
 
-                // Due = max(0, oldFullMonthlyRent − oldPrior − prepaid)
+                // Due = max(0, oldFullMR − oldPrior − prepaid)  [same formula either way]
                 BigDecimal dueRaw = oldFullMR.subtract(oldPrior).subtract(prepaid).setScale(SCALE, RM);
                 if (!officeRow.isDueForMonthOverridden()) {
                     officeRow.setDueForMonth(dueRaw.compareTo(BigDecimal.ZERO) > 0
                             ? dueRaw : BigDecimal.ZERO);
                 }
 
-                // Outstanding end: oldPrior + prepaid − mergedRent (drives next month's chain)
-                BigDecimal rawEnd = oldPrior.add(prepaid).subtract(mergedRent).setScale(SCALE, RM);
+                // Outstanding end uses the effective rent (drives next month's chain)
+                BigDecimal rawEnd = oldPrior.add(prepaid).subtract(effectiveRent).setScale(SCALE, RM);
                 officeRow.setOutstandingBalanceEndOfMonth(rawEnd.max(BigDecimal.ZERO).setScale(SCALE, RM));
 
-                // For overlap month, Rent Expense − Due must use the renewed contract's
-                // prorated rent expense (newProrate), not the merged overlap expense.
-                BigDecimal overlapRentMinusDue = newProrate
-                        .subtract(officeRow.getDueForMonth())
-                        .setScale(SCALE, RM);
-                officeRow.setRentMinusDue(overlapRentMinusDue);
+                // Rent Expense − Due: always use the NEW contract's prorated days as base
+                // (independent of whether prepaid is entered or not)
+                BigDecimal overlapDue = officeRow.getDueForMonth();
+                officeRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
             }
 
             if (officeExpired) {
@@ -325,10 +366,44 @@ public class AmortizationService {
                 StampDutyContract sd = lease.getStampDutyContract();
 
                 LocalDate sdEffectiveEnd = sd.getPaymentPaidToDate() != null
-                        ? sd.getPaymentPaidToDate() : officeEffectiveEnd;
+                        ? sd.getPaymentPaidToDate()
+                        : officeEffectiveEnd;
                 boolean sdExpired = sdEffectiveEnd.isBefore(reportStart);
 
                 AmortizationReportRow sdRow = buildRow(lease, sd, month, year);
+
+                // ── SD Overlap merge ─────────────────────────────────────────────────────
+                if (sdOverlapOldRents.containsKey(lease.getId())) {
+                    BigDecimal oldPrior  = sdOverlapOldPrior.getOrDefault(lease.getId(), BigDecimal.ZERO);
+                    BigDecimal oldFullMR = sdOverlapOldMonthlyRent.getOrDefault(lease.getId(), BigDecimal.ZERO);
+                    BigDecimal oldPart   = sdOverlapOldRents.get(lease.getId());
+                    BigDecimal newProrate = sdRow.getRentExpenseForMonth();
+                    BigDecimal mergedRent = newProrate.add(oldPart).setScale(SCALE, RM);
+                    BigDecimal prepaid    = sdRow.getPrepaidOfficeRent();
+
+                    // • prepaid == 0 → show OLD contract's full SD monthly rate
+                    // • prepaid  > 0 → show MERGED sum (old partial + new prorated)
+                    boolean prepaidEntered = prepaid.compareTo(BigDecimal.ZERO) > 0;
+                    BigDecimal effectiveRent = prepaidEntered ? mergedRent : oldFullMR;
+
+                    sdRow.setOutstandingBalancePriorMonth(oldPrior);
+                    sdRow.setRentExpenseForMonth(effectiveRent);
+                    sdRow.setRentExpenseOverridden(false);
+
+                    // Due = max(0, oldFullMR − oldPrior − prepaid)
+                    BigDecimal dueRaw = oldFullMR.subtract(oldPrior).subtract(prepaid).setScale(SCALE, RM);
+                    if (!sdRow.isDueForMonthOverridden()) {
+                        sdRow.setDueForMonth(dueRaw.compareTo(BigDecimal.ZERO) > 0 ? dueRaw : BigDecimal.ZERO);
+                    }
+
+                    // Outstanding end uses the effective rent
+                    BigDecimal rawEnd = oldPrior.add(prepaid).subtract(effectiveRent).setScale(SCALE, RM);
+                    sdRow.setOutstandingBalanceEndOfMonth(rawEnd.max(BigDecimal.ZERO).setScale(SCALE, RM));
+
+                    // Rent Expense − Due: always use newProrate (new SD's prorated days) as base
+                    BigDecimal overlapDue = sdRow.getDueForMonth();
+                    sdRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
+                }
 
                 if (sdExpired) {
                     BigDecimal monthlyRent = sdRow.getMonthlyRentWithVat();
@@ -356,34 +431,40 @@ public class AmortizationService {
         return rows;
     }
 
-    // (Golden Rule is now applied inline in buildRow and saveEntry — no separate method needed)
+    // (Golden Rule is now applied inline in buildRow and saveEntry — no separate
+    // method needed)
 
     // =========================================================
-    //  Core row builder
+    // Core row builder
     // =========================================================
 
     private AmortizationReportRow buildRow(LeaseContract lease,
-                                            StampDutyContract sd,
-                                            int month, int year) {
+            StampDutyContract sd,
+            int month, int year) {
         boolean isStampDuty = (sd != null);
 
         LocalDate paidToDate = isStampDuty ? sd.getPaymentPaidToDate() : lease.getPaymentPaidToDate();
 
-        // ---- Column 6: Total Number of Years — based on contractEndDate (full contract duration) ----
-        // End date counted INCLUSIVELY (+1 day) so a Sep-1 → Aug-31 contract = exactly 1.00 year.
+        // ---- Column 6: Total Number of Years — based on contractEndDate (full
+        // contract duration) ----
+        // End date counted INCLUSIVELY (+1 day) so a Sep-1 → Aug-31 contract = exactly
+        // 1.00 year.
         // Used for: Full Payment / Total Contract Payment = annualRent × totalYears
-        long daysContract = ChronoUnit.DAYS.between(lease.getContractStartDate(), lease.getContractEndDate().plusDays(1));
+        long daysContract = ChronoUnit.DAYS.between(lease.getContractStartDate(),
+                lease.getContractEndDate().plusDays(1));
         BigDecimal totalYears = BigDecimal.valueOf(daysContract)
                 .divide(DAYS_IN_YEAR, 6, RM).setScale(2, RM);
 
         // ---- Column 8: Year with Fraction — based on paymentPaidToDate ----
-        // Used for: Total Payment Paid to Date = annualRent × yearWithFraction + utility
-        // Keep 10 decimal places — setScale(2) would round 0.9973 → 1.00 making totalPaid = fullPayment.
+        // Used for: Total Payment Paid to Date = annualRent × yearWithFraction +
+        // utility
+        // Keep 10 decimal places — setScale(2) would round 0.9973 → 1.00 making
+        // totalPaid = fullPayment.
         BigDecimal yearWithFraction = BigDecimal.ZERO;
         if (paidToDate != null && !paidToDate.isBefore(lease.getContractStartDate())) {
             long paidDays = ChronoUnit.DAYS.between(lease.getContractStartDate(), paidToDate);
             yearWithFraction = BigDecimal.valueOf(paidDays)
-                    .divide(DAYS_IN_YEAR, 10, RM);  // high precision, NOT rounded to 2dp
+                    .divide(DAYS_IN_YEAR, 10, RM); // high precision, NOT rounded to 2dp
         }
 
         // ───────────────────────────────────────────────────────────────────
@@ -394,26 +475,28 @@ public class AmortizationService {
 
         if (!isStampDuty) {
             // ── OFFICE RENT ──────────────────────────────────────────────
-            meterSqr       = lease.getMeterSquare();
+            meterSqr = lease.getMeterSquare();
             priceBeforeVat = lease.getMeterSquarePriceBeforeVat();
             BigDecimal vatRate = lease.getVatRate();
             utilityPayment = lease.getUtilityPayment();
 
             priceAfterVat = priceBeforeVat.multiply(BigDecimal.ONE.add(vatRate)).setScale(SCALE, RM);
-            monthlyRent   = meterSqr.multiply(priceAfterVat).setScale(SCALE, RM);
-            annualRent    = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(SCALE, RM);
-            fullPayment   = annualRent.multiply(totalYears).setScale(SCALE, RM);
+            monthlyRent = meterSqr.multiply(priceAfterVat).setScale(SCALE, RM);
+            annualRent = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(SCALE, RM);
+            fullPayment = annualRent.multiply(totalYears).setScale(SCALE, RM);
 
         } else {
             // ── STAMP DUTY ───────────────────────────────────────────────
             // Full payment is the registered stamp duty amount (fixed).
-            // Monthly Rent = fullPayment / (totalYears × 12) where totalYears uses contractEndDate.
-            meterSqr       = sd.getMeterSquare();
+            // Monthly Rent = fullPayment / (totalYears × 12) where totalYears uses
+            // contractEndDate.
+            meterSqr = sd.getMeterSquare();
             priceBeforeVat = sd.getMeterSquarePriceBeforeVat();
-            priceAfterVat  = priceBeforeVat;   // no VAT
+            priceAfterVat = priceBeforeVat; // no VAT
             utilityPayment = sd.getUtilityPayment();
-            fullPayment    = sd.getStampDutyFullPayment() != null
-                    ? sd.getStampDutyFullPayment() : BigDecimal.ZERO;
+            fullPayment = sd.getStampDutyFullPayment() != null
+                    ? sd.getStampDutyFullPayment()
+                    : BigDecimal.ZERO;
 
             // Monthly rent divisor uses contractEndDate-based totalYears
             BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12)).setScale(6, RM);
@@ -437,55 +520,80 @@ public class AmortizationService {
         boolean firstMonth = isFirstMonth(lease.getContractStartDate(), month, year);
 
         // ── Rate-switching for renewed contracts (Rule 2) ─────────────────────────
-        // If this contract is a renewal (previousContractId set) and it is NOT the first month:
-        //   • Before any prepaid is entered: use the PREVIOUS contract's monthly rate
-        //   • Once prepaid > 0 is saved for any month ≤ current month: switch to THIS contract's rate
+        // If this contract is a renewal (previousContractId set) and it is NOT the
+        // first month:
+        // • Before any prepaid is entered: use the PREVIOUS contract's monthly rate
+        // • Once prepaid > 0 is saved for any month ≤ current month: switch to THIS
+        // contract's rate
         BigDecimal effectiveMonthlyRent = monthlyRent;
-        if (!isStampDuty && !firstMonth && lease.getPreviousContractId() != null) {
-            boolean prepaidEntered = !entryRepo
-                    .findFirstPrepaidOfficeEntryAtOrBefore(lease.getId(), year, month)
-                    .isEmpty();
-            if (!prepaidEntered) {
-                // No prepaid yet → use old contract's rate
-                Optional<LeaseContract> prevOpt = leaseRepo.findById(lease.getPreviousContractId());
-                if (prevOpt.isPresent()) {
-                    effectiveMonthlyRent = calcMonthlyRent(null, prevOpt.get());
+        if (!firstMonth && lease.getPreviousContractId() != null) {
+            if (!isStampDuty) {
+                // ── Office rent rate-switching ────────────────────────────────────
+                // Before prepaid entered → use OLD contract's monthly rate
+                // After prepaid saved   → use NEW contract's monthly rate
+                boolean prepaidEntered = !entryRepo
+                        .findFirstPrepaidOfficeEntryAtOrBefore(lease.getId(), year, month)
+                        .isEmpty();
+                if (!prepaidEntered) {
+                    Optional<LeaseContract> prevOpt = leaseRepo.findById(lease.getPreviousContractId());
+                    if (prevOpt.isPresent()) {
+                        effectiveMonthlyRent = calcMonthlyRent(null, prevOpt.get());
+                    }
+                }
+            } else {
+                // ── Stamp duty rate-switching (same rule as office rent) ──────────
+                // Before SD prepaid entered → use OLD contract's SD monthly rate
+                // After SD prepaid saved   → use NEW contract's SD monthly rate
+                boolean sdPrepaidEntered = !entryRepo
+                        .findFirstPrepaidSdEntryAtOrBefore(sd.getId(), year, month)
+                        .isEmpty();
+                if (!sdPrepaidEntered) {
+                    Optional<LeaseContract> prevOpt = leaseRepo.findById(lease.getPreviousContractId());
+                    if (prevOpt.isPresent() && prevOpt.get().isHasStampDuty()
+                            && prevOpt.get().getStampDutyContract() != null) {
+                        effectiveMonthlyRent = calcMonthlyRent(prevOpt.get().getStampDutyContract(), prevOpt.get());
+                    }
                 }
             }
-            // If prepaid was entered: stay with this contract's own monthlyRent (already set)
         }
 
         BigDecimal calcRentExpense = firstMonth
-                ? calcProratedRent(lease.getContractStartDate(), monthlyRent)  // first month always uses new rate (prorated by new contract's start day)
+                ? calcProratedRent(lease.getContractStartDate(), monthlyRent) // first month always uses new rate
+                                                                              // (prorated by new contract's start day)
                 : effectiveMonthlyRent;
 
         // ---- Column 17: Outstanding Balance prior month ----
         BigDecimal outstandingPrior = resolveOutstandingPrior(lease, sd, isStampDuty, month, year);
 
-        // ---- Load saved entry (prepaid, rent override, additional expense, entryDay) ----
+        // ---- Load saved entry (prepaid, rent override, additional expense, entryDay)
+        // ----
         Optional<AmortizationEntry> savedEntry = isStampDuty
-                ? entryRepo.findByStampDutyContractIdAndStampDutyTrueAndReportMonthAndReportYear(sd.getId(), month, year)
-                : entryRepo.findByLeaseContractIdAndStampDutyFalseAndReportMonthAndReportYear(lease.getId(), month, year);
+                ? entryRepo.findByStampDutyContractIdAndStampDutyTrueAndReportMonthAndReportYear(sd.getId(), month,
+                        year)
+                : entryRepo.findByLeaseContractIdAndStampDutyFalseAndReportMonthAndReportYear(lease.getId(), month,
+                        year);
 
-        BigDecimal prepaidRent       = savedEntry.map(AmortizationEntry::getPrepaidOfficeRent).orElse(BigDecimal.ZERO);
+        BigDecimal prepaidRent = savedEntry.map(AmortizationEntry::getPrepaidOfficeRent).orElse(BigDecimal.ZERO);
         BigDecimal additionalExpense = savedEntry.map(AmortizationEntry::getAdditionalExpense).orElse(BigDecimal.ZERO);
-        Integer    entryDay          = savedEntry.map(AmortizationEntry::getEntryDay).orElse(null);
-        boolean    rentOverridden    = savedEntry.map(AmortizationEntry::isRentExpenseOverridden).orElse(false);
-        boolean    dueOverridden     = savedEntry.map(AmortizationEntry::isDueForMonthOverridden).orElse(false);
+        Integer entryDay = savedEntry.map(AmortizationEntry::getEntryDay).orElse(null);
+        boolean rentOverridden = savedEntry.map(AmortizationEntry::isRentExpenseOverridden).orElse(false);
+        boolean dueOverridden = savedEntry.map(AmortizationEntry::isDueForMonthOverridden).orElse(false);
 
-        // Use stored override if the user explicitly set it; otherwise use auto-calculated value
+        // Use stored override if the user explicitly set it; otherwise use
+        // auto-calculated value
         BigDecimal rentExpense = rentOverridden
                 ? savedEntry.get().getRentExpenseForMonth()
                 : calcRentExpense;
 
-        // ---- Golden Rule: outstanding + prepaid − rentExpense − additionalExpense ----
-        BigDecimal rawEnd       = outstandingPrior
+        // ---- Golden Rule: outstanding + prepaid − rentExpense − additionalExpense
+        // ----
+        BigDecimal rawEnd = outstandingPrior
                 .add(prepaidRent)
                 .subtract(rentExpense)
                 .subtract(additionalExpense)
                 .setScale(SCALE, RM);
         // dueForMonth: use user-saved value if overridden, otherwise auto-calculate
-        BigDecimal dueForMonth  = dueOverridden
+        BigDecimal dueForMonth = dueOverridden
                 ? savedEntry.get().getDueForMonth()
                 : (rawEnd.compareTo(BigDecimal.ZERO) < 0 ? rawEnd.negate().setScale(SCALE, RM) : BigDecimal.ZERO);
         // outstandingEnd: always auto-calculated (drives the next-month chain)
@@ -529,7 +637,7 @@ public class AmortizationService {
 
         // Rent Expense − Due for Month:
         // Always compute the actual subtraction so that:
-        //   dueForMonth + (rentExpenseMinusDue) = base rent expense component
+        // dueForMonth + (rentExpenseMinusDue) = base rent expense component
         // This is required by prepaid suggestion aggregation.
         BigDecimal baseForDiff = firstMonth ? rentExpense : monthlyRent;
         BigDecimal rentMinusDue = baseForDiff.subtract(dueForMonth).setScale(SCALE, RM);
@@ -538,9 +646,8 @@ public class AmortizationService {
         return row;
     }
 
-
     // =========================================================
-    //  Helpers
+    // Helpers
     // =========================================================
 
     private boolean isFirstMonth(LocalDate contractStartDate, int month, int year) {
@@ -550,7 +657,7 @@ public class AmortizationService {
 
     /**
      * Pro-rated rent for the first (partial) month:
-     *  days remaining (including start day) / days in that month × monthly rent
+     * days remaining (including start day) / days in that month × monthly rent
      */
     private BigDecimal calcProratedRent(LocalDate startDate, BigDecimal monthlyRent) {
         int daysInMonth = YearMonth.of(startDate.getYear(), startDate.getMonthValue()).lengthOfMonth();
@@ -565,8 +672,9 @@ public class AmortizationService {
      * Calculates the suggested Prepaid Office/StampDuty Rent for a given month.
      *
      * Formula:
-     *   prepaid = TotalPaymentPaidToDate  −  Σ(dueForMonth + rentMinusDue) for all months
-     *             from contractStart up to (but NOT including) the target month.
+     * prepaid = TotalPaymentPaidToDate − Σ(dueForMonth + rentMinusDue) for all
+     * months
+     * from contractStart up to (but NOT including) the target month.
      *
      * TotalPaymentPaidToDate uses yearWithFraction ROUNDED to 2 decimal places.
      */
@@ -585,7 +693,8 @@ public class AmortizationService {
             StampDutyContract sd = lease.getStampDutyContract();
             paidToDate = sd.getPaymentPaidToDate() != null ? sd.getPaymentPaidToDate() : lease.getPaymentPaidToDate();
             utility = sd.getUtilityPayment() != null ? sd.getUtilityPayment() : BigDecimal.ZERO;
-            BigDecimal fullPayment = sd.getStampDutyFullPayment() != null ? sd.getStampDutyFullPayment() : BigDecimal.ZERO;
+            BigDecimal fullPayment = sd.getStampDutyFullPayment() != null ? sd.getStampDutyFullPayment()
+                    : BigDecimal.ZERO;
             // For prepaid suggestion, stamp duty uses the rounded year-with-fraction
             // against the contract full payment basis (not monthly rounded x 12).
             // Example: ywfRounded=1.00 and fullPayment=4000 => totalPaid=4000.00.
@@ -613,7 +722,7 @@ public class AmortizationService {
         // ── Sum (dueForMonth + rentMinusDue) for each month before the target ────
         BigDecimal previousSum = BigDecimal.ZERO;
         java.time.YearMonth current = java.time.YearMonth.of(startDate.getYear(), startDate.getMonthValue());
-        java.time.YearMonth target  = java.time.YearMonth.of(targetYear, targetMonth);
+        java.time.YearMonth target = java.time.YearMonth.of(targetYear, targetMonth);
         StampDutyContract sdForBuild = stampDuty && lease.isHasStampDuty() ? lease.getStampDutyContract() : null;
 
         while (current.isBefore(target)) {
@@ -628,20 +737,24 @@ public class AmortizationService {
     }
 
     /**
-     * Outstanding balance going INTO the requested month (i.e. end-of-prior-month balance).
+     * Outstanding balance going INTO the requested month (i.e. end-of-prior-month
+     * balance).
      *
      * Non-recursive O(1) implementation:
-     *  1. Find anchor: the most recent saved AmortizationEntry at or before the prior month.
-     *  2. If no saved entry exists, use the contract's initialOutstandingBalance and its
-     *     configured anchor month/year.
-     *  3. Count the number of full months between the anchor and the prior month.
-     *  4. Apply: balance = anchor_balance - (monthlyRent × N), clamped at 0.
-     *     The first (partial) month uses the prorated rent instead of full monthly rent.
+     * 1. Find anchor: the most recent saved AmortizationEntry at or before the
+     * prior month.
+     * 2. If no saved entry exists, use the contract's initialOutstandingBalance and
+     * its
+     * configured anchor month/year.
+     * 3. Count the number of full months between the anchor and the prior month.
+     * 4. Apply: balance = anchor_balance - (monthlyRent × N), clamped at 0.
+     * The first (partial) month uses the prorated rent instead of full monthly
+     * rent.
      *
      * This avoids the N-deep recursion that caused hangs for far-future years.
      */
     private BigDecimal resolveOutstandingPrior(LeaseContract lease, StampDutyContract sd,
-                                                boolean isStampDuty, int month, int year) {
+            boolean isStampDuty, int month, int year) {
         LocalDate contractStart = lease.getContractStartDate();
 
         // ── Determine the registered anchor month/year and initial balance ──
@@ -657,7 +770,8 @@ public class AmortizationService {
                         : contractStart.getYear());
         BigDecimal initBalance = isStampDuty
                 ? (sd.getInitialOutstandingBalance() != null ? sd.getInitialOutstandingBalance() : BigDecimal.ZERO)
-                : (lease.getInitialOutstandingBalance() != null ? lease.getInitialOutstandingBalance() : BigDecimal.ZERO);
+                : (lease.getInitialOutstandingBalance() != null ? lease.getInitialOutstandingBalance()
+                        : BigDecimal.ZERO);
 
         // ── 1. This IS the anchor month → return the registered initial balance ──
         if (year == initYear && month == initMonth) {
@@ -665,7 +779,7 @@ public class AmortizationService {
         }
 
         // ── Guard: requested period before anchor → return 0 ────────────────────
-        LocalDate anchorDate      = LocalDate.of(initYear, initMonth, 1);
+        LocalDate anchorDate = LocalDate.of(initYear, initMonth, 1);
         LocalDate requestedPeriod = LocalDate.of(year, month, 1);
         if (requestedPeriod.isBefore(anchorDate)) {
             return BigDecimal.ZERO;
@@ -673,22 +787,40 @@ public class AmortizationService {
 
         // Prior period (the month whose end-balance we need)
         int priorMonth = month == 1 ? 12 : month - 1;
-        int priorYear  = month == 1 ? year - 1 : year;
+        int priorYear = month == 1 ? year - 1 : year;
 
         // ── 2. Look for the most recent saved entry at or before the prior month ──
-        // Uses a proper @Query: (year < priorYear) OR (year = priorYear AND month <= priorMonth)
-        // This correctly handles cross-year boundaries (old derived query was wrong for this).
+        // Uses a proper @Query: (year < priorYear) OR (year = priorYear AND month <=
+        // priorMonth)
+        // This correctly handles cross-year boundaries (old derived query was wrong for
+        // this).
         List<AmortizationEntry> savedList = isStampDuty
                 ? entryRepo.findLatestSdEntryAtOrBefore(sd.getId(), priorYear, priorMonth)
                 : entryRepo.findLatestOfficeEntryAtOrBefore(lease.getId(), priorYear, priorMonth);
 
         Optional<AmortizationEntry> latestSaved = savedList.isEmpty()
-                ? Optional.empty() : Optional.of(savedList.get(0));
+                ? Optional.empty()
+                : Optional.of(savedList.get(0));
 
         // If the latest saved entry IS exactly the prior month, return it directly
         if (latestSaved.isPresent()) {
             AmortizationEntry e = latestSaved.get();
             if (e.getReportYear() == priorYear && e.getReportMonth() == priorMonth) {
+                // ── Overlap month correction ───────────────────────────────────────────────
+                // If this prior month is the renewal overlap month, the stored
+                // outstandingBalanceEndOfMonth may be wrong (saveEntry uses a simplified
+                // Golden-Rule formula that omits the old contract's partial rent from the
+                // merged expense). Recompute on-the-fly via computeOverlapMonthEndBalance
+                // to guarantee correctness, regardless of what was persisted.
+                if (!isStampDuty
+                        && lease.getPreviousContractId() != null
+                        && lease.getContractStartDate().getMonthValue() == priorMonth
+                        && lease.getContractStartDate().getYear() == priorYear) {
+                    Optional<BigDecimal> overlapEnd = computeOverlapMonthEndBalance(lease, priorMonth, priorYear);
+                    if (overlapEnd.isPresent()) {
+                        return overlapEnd.get();
+                    }
+                }
                 return e.getOutstandingBalanceEndOfMonth();
             }
             // Otherwise, use it as a closer anchor (it IS the end-of-that-month balance)
@@ -699,7 +831,8 @@ public class AmortizationService {
                     priorMonth, priorYear);
         }
 
-        // ── 2b. Renewal overlap month fallback (no saved entries yet) ───────────────────
+        // ── 2b. Renewal overlap month fallback (no saved entries yet)
+        // ───────────────────
         // If the "prior month" is the renewal start/overlap month, use overlap-aware
         // month-end logic instead of generic anchor progression. This keeps the next
         // month's prior balance aligned with the merged overlap row behavior.
@@ -713,11 +846,13 @@ public class AmortizationService {
             }
         }
 
-        // ── 3. No saved entries at all – compute from the registered initial balance ──
+        // ── 3. No saved entries at all – compute from the registered initial balance
+        // ──
         // initBalance is the outstanding PRIOR TO initMonth (end-of-previous-month).
         // We first apply the initMonth's own rent to get the end-of-initMonth balance,
         // then walk forward from there to priorMonth.
-        // (Bug was here: previously passed initBalance directly, skipping initMonth's rent.)
+        // (Bug was here: previously passed initBalance directly, skipping initMonth's
+        // rent.)
         BigDecimal monthlyRentCalc = calcMonthlyRent(isStampDuty ? sd : null, lease);
         BigDecimal initMonthRent = isFirstMonth(lease.getContractStartDate(), initMonth, initYear)
                 ? calcProratedRent(lease.getContractStartDate(), monthlyRentCalc)
@@ -726,17 +861,18 @@ public class AmortizationService {
         // Determine whether the user explicitly recorded an END-OF-initMonth balance
         // (initMonth was set to a month OTHER than the contract start month/year).
         // When explicit: initBalance = end-of-initMonth → don't subtract rent.
-        // When defaulted to contractStart: initBalance = entering-initMonth → subtract rent.
-        boolean initIsExplicitPriorMonth =
-                (isStampDuty && sd.getInitialOutstandingBalanceMonth() != null
-                        && !(initMonth == contractStart.getMonthValue() && initYear == contractStart.getYear()))
+        // When defaulted to contractStart: initBalance = entering-initMonth → subtract
+        // rent.
+        boolean initIsExplicitPriorMonth = (isStampDuty && sd.getInitialOutstandingBalanceMonth() != null
+                && !(initMonth == contractStart.getMonthValue() && initYear == contractStart.getYear()))
                 ||
                 (!isStampDuty && lease.getInitialOutstandingBalanceMonth() != null
                         && !(initMonth == contractStart.getMonthValue() && initYear == contractStart.getYear()));
 
         BigDecimal initEndBalance;
         if (initIsExplicitPriorMonth) {
-            // User recorded the END-OF-initMonth balance directly (e.g. "February outstanding")
+            // User recorded the END-OF-initMonth balance directly (e.g. "February
+            // outstanding")
             initEndBalance = initBalance;
         } else {
             // Default anchor = contract start month; initBalance = ENTERING that month
@@ -755,7 +891,7 @@ public class AmortizationService {
      * Computes overlap-month end balance for a renewed office contract.
      *
      * Overlap month formula:
-     *   end = max(0, oldPrior + prepaidOverlapMonth - (oldPartial + newProrated))
+     * end = max(0, oldPrior + prepaidOverlapMonth - (oldPartial + newProrated))
      *
      * Returns empty when the supplied month/year is not a valid overlap month.
      */
@@ -776,7 +912,8 @@ public class AmortizationService {
         LeaseContract oldLease = oldOpt.get();
 
         LocalDate oldEnd = oldLease.getPaymentPaidToDate() != null
-                ? oldLease.getPaymentPaidToDate() : oldLease.getContractEndDate();
+                ? oldLease.getPaymentPaidToDate()
+                : oldLease.getContractEndDate();
         if (oldEnd.getMonthValue() != month || oldEnd.getYear() != year) {
             return Optional.empty();
         }
@@ -804,28 +941,32 @@ public class AmortizationService {
     }
 
     /**
-     * Starting from anchorEndBalance (the end-of-month balance at anchorMonth/anchorYear),
+     * Starting from anchorEndBalance (the end-of-month balance at
+     * anchorMonth/anchorYear),
      * compute the end-of-month balance at targetMonth/targetYear by subtracting
      * monthlyRent for each month in between, clamping at 0.
      *
      * Uses the prorated rent for the first (partial) contract month.
      */
     private BigDecimal applyMonthsForward(LeaseContract lease, StampDutyContract sd,
-                                           boolean isStampDuty,
-                                           BigDecimal anchorEndBalance,
-                                           int anchorMonth, int anchorYear,
-                                           int targetMonth, int targetYear) {
+            boolean isStampDuty,
+            BigDecimal anchorEndBalance,
+            int anchorMonth, int anchorYear,
+            int targetMonth, int targetYear) {
         BigDecimal monthlyRent = calcMonthlyRent(isStampDuty ? sd : null, lease);
         BigDecimal balance = anchorEndBalance;
 
         // Walk month by month from the month AFTER the anchor to the target
         int curMonth = anchorMonth;
-        int curYear  = anchorYear;
+        int curYear = anchorYear;
 
         while (!(curYear == targetYear && curMonth == targetMonth)) {
             // Advance one month
             curMonth++;
-            if (curMonth > 12) { curMonth = 1; curYear++; }
+            if (curMonth > 12) {
+                curMonth = 1;
+                curYear++;
+            }
 
             // Rent for this month (prorated only on the very first contract month)
             BigDecimal rent = isFirstMonth(lease.getContractStartDate(), curMonth, curYear)
@@ -835,24 +976,24 @@ public class AmortizationService {
             balance = balance.subtract(rent).setScale(SCALE, RM).max(BigDecimal.ZERO);
 
             // Short-circuit once balance hits 0 (it can't go negative)
-            if (balance.compareTo(BigDecimal.ZERO) == 0) break;
+            if (balance.compareTo(BigDecimal.ZERO) == 0)
+                break;
         }
         return balance;
     }
 
-
     // =========================================================
-    //  SAVE / UPDATE monthly entry (due + prepaid – manually entered)
+    // SAVE / UPDATE monthly entry (due + prepaid – manually entered)
     // =========================================================
 
     @Transactional
     public AmortizationEntry saveEntry(Long leaseId, boolean isStampDuty,
-                                       int month, int year,
-                                       BigDecimal rentExpenseOverride,   // null = auto-calculated
-                                       BigDecimal dueForMonthInput,      // nullable, used as hint only
-                                       BigDecimal prepaidOfficeRent,
-                                       BigDecimal additionalExpense,
-                                       Integer entryDay) {
+            int month, int year,
+            BigDecimal rentExpenseOverride, // null = auto-calculated
+            BigDecimal dueForMonthInput, // nullable, used as hint only
+            BigDecimal prepaidOfficeRent,
+            BigDecimal additionalExpense,
+            Integer entryDay) {
 
         LeaseContract lease = leaseRepo.findById(leaseId)
                 .orElseThrow(() -> new RuntimeException("Lease not found: " + leaseId));
@@ -877,8 +1018,8 @@ public class AmortizationService {
         entry.setReportYear(year);
         entry.setEntryDay(entryDay);
 
-        BigDecimal prepaid   = prepaidOfficeRent != null ? prepaidOfficeRent : BigDecimal.ZERO;
-        BigDecimal addlExp   = additionalExpense  != null ? additionalExpense  : BigDecimal.ZERO;
+        BigDecimal prepaid = prepaidOfficeRent != null ? prepaidOfficeRent : BigDecimal.ZERO;
+        BigDecimal addlExp = additionalExpense != null ? additionalExpense : BigDecimal.ZERO;
         entry.setPrepaidOfficeRent(prepaid);
         entry.setAdditionalExpense(addlExp);
 
@@ -888,10 +1029,44 @@ public class AmortizationService {
 
         // Rent expense: use override if provided, otherwise auto-calculate
         BigDecimal monthlyRent = calcMonthlyRent(isStampDuty ? sd : null, lease);
-        boolean firstMonth     = isFirstMonth(lease.getContractStartDate(), month, year);
-        BigDecimal autoRent    = firstMonth
+        boolean firstMonth = isFirstMonth(lease.getContractStartDate(), month, year);
+        BigDecimal autoRent = firstMonth
                 ? calcProratedRent(lease.getContractStartDate(), monthlyRent)
                 : monthlyRent;
+
+        // ── Overlap month correction for autoRent ─────────────────────────────────────
+        // Ensure that if it's an overlap month, the autoRent mimics generateReport's value.
+        if (firstMonth && lease.getPreviousContractId() != null) {
+            Optional<LeaseContract> oldOpt = leaseRepo.findById(lease.getPreviousContractId());
+            if (oldOpt.isPresent()) {
+                LeaseContract oldContract = oldOpt.get();
+                LocalDate oldEnd = oldContract.getPaymentPaidToDate() != null
+                        ? oldContract.getPaymentPaidToDate()
+                        : oldContract.getContractEndDate();
+
+                if (oldEnd.getMonthValue() == month && oldEnd.getYear() == year) {
+                    int daysInMonth = java.time.YearMonth.of(year, month).lengthOfMonth();
+                    int oldDays = oldEnd.getDayOfMonth();
+                    boolean prepaidEntered = prepaid.compareTo(BigDecimal.ZERO) > 0;
+
+                    if (!isStampDuty) {
+                        BigDecimal oldMR = calcMonthlyRent(null, oldContract);
+                        BigDecimal oldPartial = oldMR
+                                .multiply(BigDecimal.valueOf(oldDays))
+                                .divide(BigDecimal.valueOf(daysInMonth), SCALE, RM);
+                        
+                        autoRent = prepaidEntered ? autoRent.add(oldPartial).setScale(SCALE, RM) : oldMR;
+                    } else if (oldContract.isHasStampDuty() && oldContract.getStampDutyContract() != null) {
+                        BigDecimal oldSdMR = calcMonthlyRent(oldContract.getStampDutyContract(), oldContract);
+                        BigDecimal oldSdPart = oldSdMR
+                                .multiply(BigDecimal.valueOf(oldDays))
+                                .divide(BigDecimal.valueOf(daysInMonth), SCALE, RM);
+                        
+                        autoRent = prepaidEntered ? autoRent.add(oldSdPart).setScale(SCALE, RM) : oldSdMR;
+                    }
+                }
+            }
+        }
 
         boolean overridden = rentExpenseOverride != null;
         BigDecimal rentExpense = overridden ? rentExpenseOverride : autoRent;
@@ -908,7 +1083,7 @@ public class AmortizationService {
         // dueForMonth: persist user value if provided, otherwise auto-calculate
         boolean dueOverridden = dueForMonthInput != null;
         BigDecimal dueToSave = dueOverridden
-                ? dueForMonthInput.max(BigDecimal.ZERO).setScale(SCALE, RM)   // clamp at 0
+                ? dueForMonthInput.max(BigDecimal.ZERO).setScale(SCALE, RM) // clamp at 0
                 : (rawEnd.compareTo(BigDecimal.ZERO) < 0 ? rawEnd.negate().setScale(SCALE, RM) : BigDecimal.ZERO);
         entry.setDueForMonth(dueToSave);
         entry.setDueForMonthOverridden(dueOverridden);
@@ -921,15 +1096,18 @@ public class AmortizationService {
 
     /**
      * Monthly rent for outstandingPrior resolution and saveEntry.
-     * For stamp duty: fullPayment / (totalYears * 12). For office: meterSqr * priceAfterVat.
+     * For stamp duty: fullPayment / (totalYears * 12). For office: meterSqr *
+     * priceAfterVat.
      */
     private BigDecimal calcMonthlyRent(StampDutyContract sd, LeaseContract lease) {
         if (sd != null) {
             // Stamp duty: fullPayment / (days-based totalYears * 12)
             BigDecimal fullPayment = sd.getStampDutyFullPayment() != null
-                    ? sd.getStampDutyFullPayment() : BigDecimal.ZERO;
+                    ? sd.getStampDutyFullPayment()
+                    : BigDecimal.ZERO;
             LocalDate paidToDate = sd.getPaymentPaidToDate() != null
-                    ? sd.getPaymentPaidToDate() : lease.getContractEndDate();
+                    ? sd.getPaymentPaidToDate()
+                    : lease.getContractEndDate();
             long days = ChronoUnit.DAYS.between(lease.getContractStartDate(), paidToDate);
             BigDecimal totalYears = BigDecimal.valueOf(days).divide(DAYS_IN_YEAR, 6, RM);
             BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12)).setScale(6, RM);
@@ -939,13 +1117,13 @@ public class AmortizationService {
         }
         // Office rent: meterSqr * priceAfterVat
         BigDecimal priceBeforeVat = lease.getMeterSquarePriceBeforeVat();
-        BigDecimal vatRate        = lease.getVatRate();
-        BigDecimal priceAfterVat  = priceBeforeVat.multiply(BigDecimal.ONE.add(vatRate)).setScale(SCALE, RM);
+        BigDecimal vatRate = lease.getVatRate();
+        BigDecimal priceAfterVat = priceBeforeVat.multiply(BigDecimal.ONE.add(vatRate)).setScale(SCALE, RM);
         return lease.getMeterSquare().multiply(priceAfterVat).setScale(SCALE, RM);
     }
 
     // =========================================================
-    //  RENEWAL PREFILL
+    // RENEWAL PREFILL
     // =========================================================
 
     /**
@@ -953,8 +1131,10 @@ public class AmortizationService {
      * when renewing an existing contract.
      *
      * The initialOutstandingBalance is computed for the LAST MONTH of the contract
-     * (paymentPaidToDate month/year, or contractEndDate if not set) by calling buildRow
-     * for that month and reading outstandingBalanceEndOfMonth. This is correct regardless
+     * (paymentPaidToDate month/year, or contractEndDate if not set) by calling
+     * buildRow
+     * for that month and reading outstandingBalanceEndOfMonth. This is correct
+     * regardless
      * of whether the user has saved entries for every intermediate month.
      */
     @Transactional(readOnly = true)
@@ -964,17 +1144,20 @@ public class AmortizationService {
 
         // ── Determine the last month of this contract's amortization period ──
         // We want the balance at the END of the last amortization month.
-        // paymentPaidToDate (e.g. Mar 20 2028) means the contract covers up to that date.
+        // paymentPaidToDate (e.g. Mar 20 2028) means the contract covers up to that
+        // date.
         // The LAST full month with a balance is the month OF paidToDate.
         // BUT the outstanding we carry to the new contract is the balance PRIOR to
-        // the new contract's first month (e.g. February 2028 if new starts Mar 21 2028).
+        // the new contract's first month (e.g. February 2028 if new starts Mar 21
+        // 2028).
         // Therefore we use the month BEFORE paidToDate as the snapshot month.
         LocalDate officeEnd = lease.getPaymentPaidToDate() != null
-                ? lease.getPaymentPaidToDate() : lease.getContractEndDate();
+                ? lease.getPaymentPaidToDate()
+                : lease.getContractEndDate();
         // Prior month = month before paidToDate
         java.time.YearMonth officeSnap = java.time.YearMonth.from(officeEnd).minusMonths(1);
         int lastMonth = officeSnap.getMonthValue();
-        int lastYear  = officeSnap.getYear();
+        int lastYear = officeSnap.getYear();
 
         // Compute the outstanding balance at the end of that prior month
         AmortizationReportRow lastRow = buildRow(lease, null, lastMonth, lastYear);
@@ -983,14 +1166,14 @@ public class AmortizationService {
         // Stamp duty
         BigDecimal sdEndingBalance = BigDecimal.ZERO;
         Integer sdEndMonth = null;
-        Integer sdEndYear  = null;
+        Integer sdEndYear = null;
         if (lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
             StampDutyContract sd = lease.getStampDutyContract();
             LocalDate sdPaid = sd.getPaymentPaidToDate() != null ? sd.getPaymentPaidToDate() : officeEnd;
             // Same logic: use the month before paidToDate
             java.time.YearMonth sdSnap = java.time.YearMonth.from(sdPaid).minusMonths(1);
             sdEndMonth = sdSnap.getMonthValue();
-            sdEndYear  = sdSnap.getYear();
+            sdEndYear = sdSnap.getYear();
             AmortizationReportRow sdLastRow = buildRow(lease, sd, sdEndMonth, sdEndYear);
             sdEndingBalance = sdLastRow.getOutstandingBalanceEndOfMonth();
         }
