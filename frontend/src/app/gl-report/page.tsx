@@ -45,7 +45,7 @@ function buildATM(rows: AmortizationReportRow[], month: number, year: number): T
     const office = rows.filter(r => !r.stampDutyRow);
     const totalExp     = office.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
     const totalDue     = office.reduce((s, r) => s + (r.dueForMonth         ?? 0), 0);
-    const totalPrepaid = office.reduce((s, r) => s + (r.prepaidOfficeRent   ?? 0), 0);
+    const totalPrepaid = totalExp - totalDue;
 
     return {
         title: "ATM Rent Schedule Ticket",
@@ -83,18 +83,16 @@ function buildCityOutline(rows: AmortizationReportRow[], month: number, year: nu
     });
 
     const debit: Row[] = [];
-    let totalExp = 0, totalDue = 0, totalPrepaid = 0;
+    let totalExp = 0, totalDue = 0;
 
     contracts.forEach(group => {
         const sdRow     = group.find(r => r.stampDutyRow);
         const officeRow = group.find(r => !r.stampDutyRow);
         const amount    = sdRow?.total ?? officeRow?.rentExpenseForMonth ?? 0;
         const due       = group.reduce((s, r) => s + (r.dueForMonth       ?? 0), 0);
-        const prepaid   = group.reduce((s, r) => s + (r.prepaidOfficeRent ?? 0), 0);
 
         totalExp     += amount;
         totalDue     += due;
-        totalPrepaid += prepaid;
 
         if (officeRow) {
             debit.push({
@@ -104,6 +102,8 @@ function buildCityOutline(rows: AmortizationReportRow[], month: number, year: nu
             });
         }
     });
+
+    const totalPrepaid = totalExp - totalDue;
 
     return {
         title: `Office Rent Ticket (${catLbl})`,
