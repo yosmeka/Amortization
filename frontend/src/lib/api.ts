@@ -112,6 +112,7 @@ export async function createLease(data: LeaseContractRequest) {
     return handleResponse<object>(res);
 }
 
+
 export async function fetchLeases() {
     const res = await fetch(`${API_BASE}/leases`);
     return handleResponse<object[]>(res);

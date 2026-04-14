@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { AmortizationReportRow, fetchReport, saveEntry } from "@/lib/api";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -32,6 +34,102 @@ export default function ReportPage() {
     const [error, setError] = useState("");
     const [saving, setSaving] = useState<string | null>(null);
     const [search, setSearch] = useState("");
+
+
+    const exportToExcel = () => {
+        if (!rows.length) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const data = rows.map((r, index) => ({
+            "S/No": r.stampDutyRow ? "" : index + 1,
+            "Category of Rent": r.categoryOfRent,
+            "Branch Name": r.branchName,
+            "Branch Code": r.branchCode,
+            "Owner Name": r.ownerName,
+            "Contract Start": fmtDate(r.contractStartDate),
+            "Contract End": fmtDate(r.contractEndDate),
+            "Total No. of Years": r.totalNumberOfYears,
+            "Payment Paid to Date": fmtDate(r.paymentPaidToDate),
+            "Year with Fraction": r.yearWithFraction,
+            "Meter Square": r.meterSquare,
+            "Price/m² Before VAT": r.meterSquarePriceBeforeVat,
+            "Price/m² After VAT": r.meterSquarePriceAfterVat,
+            "Monthly Rent with VAT": r.monthlyRentWithVat,
+            "Total Annual Rent": r.totalAnnualRentAmount,
+            "Utility / Service Charge": r.utilityPayment,
+            "Full Payment": r.fullPayment,
+            "Total Payment Paid": r.totalPaymentPaidToDate,
+            "Remaining Payment": r.remainingPayment,
+            "Outstanding Balance (Prev)": r.outstandingBalancePriorMonth,
+            "Rent Expense": r.rentExpenseForMonth,
+            "Total": r.total,
+            "Due": r.dueForMonth,
+            "Rent Expense − Due": r.rentMinusDue,
+            "Prepaid": r.prepaidOfficeRent,
+            "Additional Expense": r.additionalExpense,
+            "Day": r.entryDay,
+            "Outstanding End": r.outstandingBalanceEndOfMonth
+        }));
+
+        // Add total row
+        const totalRow = {
+            "S/No": "TOTAL",
+            "Category of Rent": "",
+            "Branch Name": "",
+            "Branch Code": "",
+            "Owner Name": "",
+            "Contract Start": "",
+            "Contract End": "",
+            "Total No. of Years": 0, // Updated to match expected type
+            "Payment Paid to Date": "", // Updated to match expected type
+            "Year with Fraction": 0, // Updated to match expected type
+            "Meter Square": rows.reduce((sum, r) => sum + (r.meterSquare || 0), 0),
+            "Price/m² Before VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceBeforeVat || 0), 0),
+            "Price/m² After VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceAfterVat || 0), 0),
+            "Monthly Rent with VAT": rows.reduce((sum, r) => sum + (r.monthlyRentWithVat || 0), 0),
+            "Total Annual Rent": rows.reduce((sum, r) => sum + (r.totalAnnualRentAmount || 0), 0),
+            "Utility / Service Charge": rows.reduce((sum, r) => sum + (r.utilityPayment || 0), 0),
+            "Full Payment": rows.reduce((sum, r) => sum + (r.fullPayment || 0), 0),
+            "Total Payment Paid": rows.reduce((sum, r) => sum + (r.totalPaymentPaidToDate || 0), 0),
+            "Remaining Payment": rows.reduce((sum, r) => sum + (r.remainingPayment || 0), 0),
+            "Outstanding Balance (Prev)": rows.reduce((sum, r) => sum + (r.outstandingBalancePriorMonth || 0), 0),
+            "Rent Expense": rows.reduce((sum, r) => sum + (r.rentExpenseForMonth || 0), 0),
+            "Total": rows.reduce((sum, r) => sum + (r.total || 0), 0),
+            "Due": rows.reduce((sum, r) => sum + (r.dueForMonth || 0), 0),
+            "Rent Expense − Due": 0, // Updated to match expected type
+            "Prepaid": rows.reduce((sum, r) => sum + (r.prepaidOfficeRent || 0), 0),
+            "Additional Expense": rows.reduce((sum, r) => sum + (r.additionalExpense || 0), 0),
+            "Day": 0, // Updated to match expected type
+            "Outstanding End": rows.reduce((sum, r) => sum + (r.outstandingBalanceEndOfMonth || 0), 0)
+        };
+        data.push(totalRow);
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+
+        // Apply formatting
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+
+        // Adjust column widths
+        const columnWidths = Object.keys(data[0]).map(() => ({ wch: 20 }));
+        worksheet["!cols"] = columnWidths;
+
+        const excelBuffer = XLSX.write(workbook, {
+            bookType: "xlsx",
+            type: "array"
+        });
+
+        const file = new Blob([excelBuffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+
+        saveAs(file, `Amortization_Report_${month}_${year}.xlsx`);
+    };
+const handlePrint = () => {
+    window.print();
+};
 
     // Editable fields per row (key = `${leaseId}-${isSD}`)
     const [edits, setEdits] = useState<Record<string, {
@@ -118,6 +216,14 @@ export default function ReportPage() {
 
     return (
         <div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginBottom: "1rem" }}>
+            <button onClick={exportToExcel} className="btn btn-success btn-sm">
+                📥 Export Excel
+            </button>
+            <button onClick={handlePrint} className="btn btn-secondary btn-sm">
+                🖨 Print
+            </button>
+        </div>
             <div className="page-header">
                 <h2>Monthly Amortization Report</h2>
                 <p>Select a month and year to generate the full 22-column report. Edit &quot;Due&quot; and &quot;Prepaid&quot; inline then click Save.</p>
