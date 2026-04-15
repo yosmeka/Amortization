@@ -9,6 +9,10 @@ const MONTHS = [
     "July", "August", "September", "October", "November", "December"
 ];
 
+
+
+
+
 function fmt(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
     return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,6 +39,10 @@ export default function ReportPage() {
     const [saving, setSaving] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
+    const [toast, setToast] = useState<{ 
+    message: string; 
+    type: "success" | "error" 
+} | null>(null);
 
     const exportToExcel = () => {
         if (!rows.length) {
@@ -140,6 +148,8 @@ const handlePrint = () => {
         entryDay: string;     // 1-31 or empty
     }>>({});
 
+
+    
     const load = async () => {
         setLoading(true); setError("");
         try {
@@ -166,19 +176,50 @@ const handlePrint = () => {
         setEdits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
 
     const calcPrepaid = async (row: AmortizationReportRow) => {
-        const key = `${row.leaseContractId}-${row.stampDutyRow}`;
-        try {
-            const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
-            const res = await fetch(
-                `${API_BASE}/amortization/prepaid-suggestion?leaseId=${row.leaseContractId}&month=${month}&year=${year}&stampDuty=${row.stampDutyRow}`
-            );
-            if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
+    const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+    try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
+        const res = await fetch(
+            `${API_BASE}/amortization/prepaid-suggestion?leaseId=${row.leaseContractId}&month=${month}&year=${year}&stampDuty=${row.stampDutyRow}`
+        );
+
+        if (!res.ok) throw new Error("Failed");
+
+        const data: {
+            suggestedPrepaid: number;
+            alreadyFilled: boolean;
+            filledMonth?: number;
+            filledYear?: number;
+            filledAmount?: number;
+        } = await res.json();
+
+       if (data.alreadyFilled) {
+            const monthName = MONTHS[(data.filledMonth || 1) - 1];
+            const amount = data.filledAmount
+                ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 2 })
+                : "0.00";
+
+            setToast({
+                type: "success",
+                message: `Prepaid has already been filled on ${monthName} ${data.filledYear} with amount ${amount}.`,
+            });
+
+            // Auto-hide toast after 5 seconds
+            setTimeout(() => setToast(null), 5000);
+
+            handleEdit(key, "prepaid", "0");
+        } else {
+            // Normal suggestion
             handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
-        } catch {
-            alert("Could not calculate prepaid suggestion. Please try again.");
         }
-    };
+    } catch {
+        setToast({
+            type: "error",
+            message: "Could not calculate prepaid suggestion. Please try again.",
+        });
+        setTimeout(() => setToast(null), 4000);
+    }
+};
 
     const handleSave = async (row: AmortizationReportRow) => {
         const key = `${row.leaseContractId}-${row.stampDutyRow}`;
@@ -253,6 +294,44 @@ const handlePrint = () => {
                 >
                     {loading ? "⏳ Generating…" : "📊 Generate Report"}
                 </button>
+
+                {toast && (
+    <div
+        style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            background: toast.type === "success" ? "#10b981" : "#ef4444",
+            color: "white",
+            padding: "14px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            zIndex: 9999,
+            fontSize: "0.95rem",
+            maxWidth: "380px",
+        }}
+    >
+        {toast.type === "success" ? "✅" : "❌"}
+        <span style={{ flex: 1 }}>{toast.message}</span>
+        <button
+            onClick={() => setToast(null)}
+            style={{
+                background: "none",
+                border: "none",
+                color: "white",
+                fontSize: "1.4rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                padding: 0,
+            }}
+        >
+            ×
+        </button>
+    </div>
+)}
                 {/* Search */}
                 <input
                     type="search"
@@ -381,6 +460,7 @@ const handlePrint = () => {
                                             <td className="number" style={{ background: "#f0fdf4", fontWeight: 600, color: "#065f46" }}>
                                                 {fmt(row.rentMinusDue)}
                                             </td>
+                                         
 
                                             {/* ✏️ Editable: Prepaid Office Rent + Auto-Calc button */}
                                             <td className="editable-cell" style={{ background: "#eff6ff" }}>

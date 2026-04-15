@@ -33,6 +33,15 @@ public class AmortizationService {
     private static final int SCALE = 2;
     private static final RoundingMode RM = RoundingMode.HALF_UP;
 
+
+    public record PrepaidSuggestionResponse(
+        BigDecimal suggestedPrepaid,
+        boolean alreadyFilled,
+        Integer filledMonth,
+        Integer filledYear,
+        BigDecimal filledAmount
+) {}
+
     // =========================================================
     // REGISTRATION
     // =========================================================
@@ -470,7 +479,8 @@ public class AmortizationService {
         // ───────────────────────────────────────────────────────────────────
         // Columns 10-14: different formulas for office rent vs stamp duty
         // ───────────────────────────────────────────────────────────────────
-        BigDecimal meterSqr, priceBeforeVat, priceAfterVat, monthlyRent, annualRent, fullPayment;
+        BigDecimal meterSqr, priceBeforeVat, priceAfterVat, monthlyRent, annualRent;
+        BigDecimal fullPayment = BigDecimal.ZERO; // Declare fullPayment at the top
         BigDecimal utilityPayment;
 
         if (!isStampDuty) {
@@ -640,7 +650,23 @@ public class AmortizationService {
         // dueForMonth + (rentExpenseMinusDue) = base rent expense component
         // This is required by prepaid suggestion aggregation.
         BigDecimal baseForDiff = firstMonth ? rentExpense : monthlyRent;
-        BigDecimal rentMinusDue = baseForDiff.subtract(dueForMonth).setScale(SCALE, RM);
+        BigDecimal rentMinusDue;
+        if (lease.getPreviousContractId() == null) {
+            // No renewal: Rent Expense − Due is always 0
+            rentMinusDue = BigDecimal.ZERO;
+        } else {
+            // Renewed contract logic
+            boolean prepaidEntered = !entryRepo
+                    .findFirstPrepaidOfficeEntryAtOrBefore(lease.getId(), year, month)
+                    .isEmpty();
+            if (prepaidEntered) {
+                // Prepaid saved: Rent Expense − Due is 0 starting from this month
+                rentMinusDue = BigDecimal.ZERO;
+            } else {
+                // Before prepaid is saved: Use old logic for Rent Expense − Due
+                rentMinusDue = baseForDiff.subtract(dueForMonth).setScale(SCALE, RM);
+            }
+        }
         row.setRentMinusDue(rentMinusDue);
 
         return row;
@@ -667,75 +693,116 @@ public class AmortizationService {
                 .multiply(BigDecimal.valueOf(daysRemaining))
                 .divide(BigDecimal.valueOf(daysInMonth), SCALE, RM);
     }
+/**
+ * Calculates the suggested Prepaid Office/StampDuty Rent for a given month.
+ *
+ * UPDATED BUSINESS RULE:
+ * - Suggestion (normal calculation) is shown ONLY the very first time — when NO prepaid has ever been saved for this contract.
+ * - Once ANY prepaid entry exists (even in a future month like May when calculating April), 
+ *   we consider the prepaid "already filled once up to contract end date".
+ *   Show toast message and return 0 for ALL months.
+ * - After contract end date → always 0.
+ */
+public PrepaidSuggestionResponse calculatePrepaidSuggestion(Long leaseId, boolean stampDuty, int targetMonth, int targetYear) {
+    LeaseContract lease = leaseRepo.findById(leaseId)
+            .orElseThrow(() -> new RuntimeException("Lease not found: " + leaseId));
 
-    /**
-     * Calculates the suggested Prepaid Office/StampDuty Rent for a given month.
-     *
-     * Formula:
-     * prepaid = TotalPaymentPaidToDate − Σ(dueForMonth + rentMinusDue) for all
-     * months
-     * from contractStart up to (but NOT including) the target month.
-     *
-     * TotalPaymentPaidToDate uses yearWithFraction ROUNDED to 2 decimal places.
-     */
-    public BigDecimal calculatePrepaidSuggestion(Long leaseId, boolean stampDuty, int targetMonth, int targetYear) {
-        LeaseContract lease = leaseRepo.findById(leaseId)
-                .orElseThrow(() -> new RuntimeException("Lease not found: " + leaseId));
+    LocalDate startDate = lease.getContractStartDate();
 
-        LocalDate startDate = lease.getContractStartDate();
+    // ── 1. Effective contract end date check ──
+    LocalDate effectiveEndDate = (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null)
+            ? (lease.getStampDutyContract().getPaymentPaidToDate() != null
+                    ? lease.getStampDutyContract().getPaymentPaidToDate()
+                    : lease.getContractEndDate())
+            : (lease.getPaymentPaidToDate() != null
+                    ? lease.getPaymentPaidToDate()
+                    : lease.getContractEndDate());
 
-        BigDecimal annualRent;
-        BigDecimal utility;
-        LocalDate paidToDate;
-
-        if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
-            // ── Stamp Duty annual rent ────────────────────────────────────────────
-            StampDutyContract sd = lease.getStampDutyContract();
-            paidToDate = sd.getPaymentPaidToDate() != null ? sd.getPaymentPaidToDate() : lease.getPaymentPaidToDate();
-            utility = sd.getUtilityPayment() != null ? sd.getUtilityPayment() : BigDecimal.ZERO;
-            BigDecimal fullPayment = sd.getStampDutyFullPayment() != null ? sd.getStampDutyFullPayment()
-                    : BigDecimal.ZERO;
-            // For prepaid suggestion, stamp duty uses the rounded year-with-fraction
-            // against the contract full payment basis (not monthly rounded x 12).
-            // Example: ywfRounded=1.00 and fullPayment=4000 => totalPaid=4000.00.
-            annualRent = fullPayment.setScale(SCALE, RM);
-        } else {
-            // ── Office Rent annual rent ───────────────────────────────────────────
-            paidToDate = lease.getPaymentPaidToDate();
-            utility = lease.getUtilityPayment() != null ? lease.getUtilityPayment() : BigDecimal.ZERO;
-            BigDecimal priceAfterVat = lease.getMeterSquarePriceBeforeVat()
-                    .multiply(BigDecimal.ONE.add(lease.getVatRate())).setScale(SCALE, RM);
-            BigDecimal monthlyRent = lease.getMeterSquare().multiply(priceAfterVat).setScale(SCALE, RM);
-            annualRent = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(SCALE, RM);
-        }
-
-        // ── Total Payment Paid to Date with ROUNDED yearWithFraction ─────────────
-        BigDecimal yearWithFractionRounded = BigDecimal.ZERO;
-        if (paidToDate != null && !paidToDate.isBefore(startDate)) {
-            long paidDays = ChronoUnit.DAYS.between(startDate, paidToDate);
-            yearWithFractionRounded = BigDecimal.valueOf(paidDays)
-                    .divide(DAYS_IN_YEAR, 10, RM)
-                    .setScale(2, RM);
-        }
-        BigDecimal totalPaid = annualRent.multiply(yearWithFractionRounded).add(utility).setScale(SCALE, RM);
-
-        // ── Sum (dueForMonth + rentMinusDue) for each month before the target ────
-        BigDecimal previousSum = BigDecimal.ZERO;
-        java.time.YearMonth current = java.time.YearMonth.of(startDate.getYear(), startDate.getMonthValue());
-        java.time.YearMonth target = java.time.YearMonth.of(targetYear, targetMonth);
-        StampDutyContract sdForBuild = stampDuty && lease.isHasStampDuty() ? lease.getStampDutyContract() : null;
-
-        while (current.isBefore(target)) {
-            AmortizationReportRow row = buildRow(lease, sdForBuild, current.getMonthValue(), current.getYear());
-            BigDecimal contrib = row.getDueForMonth().add(row.getRentMinusDue());
-            previousSum = previousSum.add(contrib);
-            current = current.plusMonths(1);
-        }
-
-        BigDecimal suggested = totalPaid.subtract(previousSum).setScale(SCALE, RM);
-        return suggested.max(BigDecimal.ZERO);
+    LocalDate targetStart = LocalDate.of(targetYear, targetMonth, 1);
+    if (targetStart.isAfter(effectiveEndDate)) {
+        return new PrepaidSuggestionResponse(BigDecimal.ZERO, true, null, null, null);
     }
 
+    // ── 2. Check if ANY prepaid has EVER been saved for this contract ──
+    // We ignore the target month and check globally for any prepaid entry.
+    boolean anyPrepaidEverSaved;
+    AmortizationEntry firstEntry = null;
+
+    if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
+        StampDutyContract sd = lease.getStampDutyContract();
+        // Find the very first prepaid entry ever saved (no month limit)
+        var list = entryRepo.findFirstPrepaidSdEntryAtOrBefore(sd.getId(), 9999, 12); // far future to get earliest
+        anyPrepaidEverSaved = !list.isEmpty();
+        if (anyPrepaidEverSaved) firstEntry = list.get(0);
+    } else {
+        var list = entryRepo.findFirstPrepaidOfficeEntryAtOrBefore(lease.getId(), 9999, 12);
+        anyPrepaidEverSaved = !list.isEmpty();
+        if (anyPrepaidEverSaved) firstEntry = list.get(0);
+    }
+
+    if (anyPrepaidEverSaved) {
+        // Show toast with the FIRST time it was filled (even if target month is earlier)
+        int filledM = firstEntry.getReportMonth();
+        int filledY = firstEntry.getReportYear();
+        BigDecimal filledAmt = firstEntry.getPrepaidOfficeRent() != null
+                ? firstEntry.getPrepaidOfficeRent()
+                : BigDecimal.ZERO;
+
+        return new PrepaidSuggestionResponse(
+                BigDecimal.ZERO,
+                true,
+                filledM,
+                filledY,
+                filledAmt
+        );
+    }
+
+    // ── 3. No prepaid ever saved → do normal suggestion calculation ──
+    BigDecimal annualRent;
+    BigDecimal utility;
+    LocalDate paidToDate;
+    BigDecimal fullPayment = BigDecimal.ZERO;
+
+    if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
+        StampDutyContract sd = lease.getStampDutyContract();
+        paidToDate = sd.getPaymentPaidToDate() != null ? sd.getPaymentPaidToDate() : lease.getPaymentPaidToDate();
+        utility = sd.getUtilityPayment() != null ? sd.getUtilityPayment() : BigDecimal.ZERO;
+        fullPayment = sd.getStampDutyFullPayment() != null ? sd.getStampDutyFullPayment() : BigDecimal.ZERO;
+        annualRent = fullPayment.setScale(SCALE, RM);
+    } else {
+        paidToDate = lease.getPaymentPaidToDate();
+        utility = lease.getUtilityPayment() != null ? lease.getUtilityPayment() : BigDecimal.ZERO;
+        BigDecimal priceAfterVat = lease.getMeterSquarePriceBeforeVat()
+                .multiply(BigDecimal.ONE.add(lease.getVatRate())).setScale(SCALE, RM);
+        BigDecimal monthlyRent = lease.getMeterSquare().multiply(priceAfterVat).setScale(SCALE, RM);
+        annualRent = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(SCALE, RM);
+    }
+
+    BigDecimal yearWithFractionRounded = BigDecimal.ZERO;
+    if (paidToDate != null && !paidToDate.isBefore(startDate)) {
+        long paidDays = ChronoUnit.DAYS.between(startDate, paidToDate);
+        yearWithFractionRounded = BigDecimal.valueOf(paidDays)
+                .divide(DAYS_IN_YEAR, 10, RM)
+                .setScale(2, RM);
+    }
+    BigDecimal totalPaid = annualRent.multiply(yearWithFractionRounded).add(utility).setScale(SCALE, RM);
+
+    BigDecimal previousSum = BigDecimal.ZERO;
+    java.time.YearMonth current = java.time.YearMonth.of(startDate.getYear(), startDate.getMonthValue());
+    java.time.YearMonth target = java.time.YearMonth.of(targetYear, targetMonth);
+
+    StampDutyContract sdForBuild = stampDuty && lease.isHasStampDuty() ? lease.getStampDutyContract() : null;
+
+    while (current.isBefore(target)) {
+        AmortizationReportRow row = buildRow(lease, sdForBuild, current.getMonthValue(), current.getYear());
+        previousSum = previousSum.add(row.getDueForMonth().add(row.getRentMinusDue()));
+        current = current.plusMonths(1);
+    }
+
+    BigDecimal suggested = totalPaid.subtract(previousSum).setScale(SCALE, RM).max(BigDecimal.ZERO);
+
+    return new PrepaidSuggestionResponse(suggested, false, null, null, null);
+}
     /**
      * Outstanding balance going INTO the requested month (i.e. end-of-prior-month
      * balance).
@@ -861,7 +928,7 @@ public class AmortizationService {
         // Determine whether the user explicitly recorded an END-OF-initMonth balance
         // (initMonth was set to a month OTHER than the contract start month/year).
         // When explicit: initBalance = end-of-initMonth → don't subtract rent.
-        // When defaulted to contractStart: initBalance = entering-initMonth → subtract
+        // When defaulted to contractStart: initBalance = ENTERING that month → subtract
         // rent.
         boolean initIsExplicitPriorMonth = (isStampDuty && sd.getInitialOutstandingBalanceMonth() != null
                 && !(initMonth == contractStart.getMonthValue() && initYear == contractStart.getYear()))
