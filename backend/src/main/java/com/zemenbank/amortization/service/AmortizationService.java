@@ -18,8 +18,10 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -367,7 +369,11 @@ public class AmortizationService {
                     officeRow.setDueForMonth(monthlyRent);
                 }
             }
-
+                      // ── NEW CUMULATIVE COLUMNS (Office) ─────────────────────
+            officeRow.setRentExpenseAsOf(computeCumulativeRentExpenseAsOf(lease, null, officeRow, month, year));
+           officeRow.setDueDifferenceAsOf(
+    computeDueDifferenceAsOf(lease, null, officeRow, month, year, rows)
+);
             rows.add(officeRow);
 
             // --- Stamp duty row (if applicable) ---
@@ -426,7 +432,10 @@ public class AmortizationService {
                         sdRow.setDueForMonth(monthlyRent);
                     }
                 }
-
+                               // ── NEW CUMULATIVE COLUMNS (Stamp Duty) ─────────────────────
+                               
+                sdRow.setRentExpenseAsOf(computeCumulativeRentExpenseAsOf(lease, sd, sdRow, month, year));
+                sdRow.setDueDifferenceAsOf(computeDueDifferenceAsOf(lease, sd, sdRow, month, year,rows));
                 rows.add(sdRow);
 
                 // Total = officeRentExpense + stampDutyRentExpense (on SD row only)
@@ -1007,6 +1016,124 @@ public PrepaidSuggestionResponse calculatePrepaidSuggestion(Long leaseId, boolea
         return Optional.of(rawEnd.max(BigDecimal.ZERO).setScale(SCALE, RM));
     }
 
+
+
+
+
+          /**
+     * Cumulative "Rent Expense As Of [Month]":
+     * Sum of Due for all months from contract start up to (and including) the report month.
+     * For the CURRENT month only: if Due == 0 → add full Rent Expense instead.
+     * 
+     * IMPORTANT: Uses the FINAL merged row (after overlap logic) for the target month.
+     */
+        /**
+     * Cumulative "Rent Expense As Of [Month]":
+     * Sum of Due for all months from contract start up to (and including) the report month.
+     * For the CURRENT month only: if Due == 0 → add full Rent Expense instead.
+     */
+   private BigDecimal computeCumulativeRentExpenseAsOf(
+        LeaseContract lease, StampDutyContract sd,
+        AmortizationReportRow currentRow,
+        int targetMonth, int targetYear) {
+
+    BigDecimal cum = BigDecimal.ZERO;
+    LocalDate contractStart = lease.getContractStartDate();
+    YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
+    YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
+
+    while (!ym.isAfter(targetYm)) {
+        int m = ym.getMonthValue();
+        int y = ym.getYear();
+
+        BigDecimal due, rent;
+
+        if (ym.equals(targetYm)) {
+            due  = currentRow.getDueForMonth() != null ? currentRow.getDueForMonth() : BigDecimal.ZERO;
+            rent = currentRow.getRentExpenseForMonth() != null ? currentRow.getRentExpenseForMonth() : BigDecimal.ZERO;
+        } else {
+            AmortizationReportRow row = buildRowForAnyMonth(lease, sd, m, y);
+            due  = row.getDueForMonth() != null ? row.getDueForMonth() : BigDecimal.ZERO;
+            rent = row.getRentExpenseForMonth() != null ? row.getRentExpenseForMonth() : BigDecimal.ZERO;
+        }
+
+        // ✅ APPLY RULE TO ALL MONTHS
+        if (due.compareTo(BigDecimal.ZERO) == 0) {
+            cum = cum.add(rent).setScale(SCALE, RM);
+        } else {
+            cum = cum.add(due).setScale(SCALE, RM);
+        }
+
+        ym = ym.plusMonths(1);
+    }
+
+    return cum;
+}
+    /**
+     * Cumulative "Due Difference As Of [Month]":
+     * Sum of (Rent Expense − Due) for EVERY month from contract start to report month.
+     */
+     /**
+     * Cumulative "Due Difference As Of [Month]":
+     * Sum of (Rent Expense − Due) column for EVERY month from contract start 
+     * up to (and including) the report month.
+     * Uses the same month-loop pattern as computeCumulativeRentExpenseAsOf 
+     * so it matches the behaviour you already like for Rent Expense As Of.
+     */
+    private BigDecimal computeDueDifferenceAsOf(
+            LeaseContract lease, StampDutyContract sd,
+            AmortizationReportRow currentRow,
+            int targetMonth, int targetYear,
+            List<AmortizationReportRow> allRows) {   // allRows is kept for signature only - not used
+
+        BigDecimal cum = BigDecimal.ZERO;
+        LocalDate contractStart = lease.getContractStartDate();
+        YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
+        YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
+
+        while (!ym.isAfter(targetYm)) {
+            int m = ym.getMonthValue();
+            int y = ym.getYear();
+
+            BigDecimal val;
+            if (ym.equals(targetYm)) {
+                // current/target month → use the row that was already built
+                val = currentRow.getRentMinusDue() != null 
+                        ? currentRow.getRentMinusDue() 
+                        : BigDecimal.ZERO;
+            } else {
+                // previous months → build the correct row (handles previous contracts automatically)
+                AmortizationReportRow row = buildRowForAnyMonth(lease, sd, m, y);
+                val = row.getRentMinusDue() != null 
+                        ? row.getRentMinusDue() 
+                        : BigDecimal.ZERO;
+            }
+
+            cum = cum.add(val).setScale(SCALE, RM);
+            ym = ym.plusMonths(1);
+        }
+        return cum;
+    }
+    /**
+     * Helper: builds the row for ANY month, automatically using the correct contract
+     * (previous contract if the month is before the current lease start date).
+     */
+    private AmortizationReportRow buildRowForAnyMonth(LeaseContract lease, StampDutyContract sd,
+                                                      int month, int year) {
+        LocalDate monthStart = LocalDate.of(year, month, 1);
+
+        // If this month is BEFORE the current lease started → use previous contract
+        if (monthStart.isBefore(lease.getContractStartDate())) {
+            if (lease.getPreviousContractId() != null) {
+                Optional<LeaseContract> prevOpt = leaseRepo.findById(lease.getPreviousContractId());
+                if (prevOpt.isPresent()) {
+                    return buildRow(prevOpt.get(), sd, month, year);
+                }
+            }
+        }
+        // Normal case: use current lease
+        return buildRow(lease, sd, month, year);
+    } 
     /**
      * Starting from anchorEndBalance (the end-of-month balance at
      * anchorMonth/anchorYear),

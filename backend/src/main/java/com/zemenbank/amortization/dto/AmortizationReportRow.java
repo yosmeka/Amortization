@@ -88,8 +88,8 @@ public class AmortizationReportRow {
     // === Whether rent expense was manually overridden ===
     private boolean rentExpenseOverridden;
 
-    // private BigDecimal rentExpenseAsOf;
-    // private BigDecimal dueDifferenceAsOf;
+     private BigDecimal rentExpenseAsOf;
+     private BigDecimal dueDifferenceAsOf;
 
     // === Report period ===
     private int reportMonth;

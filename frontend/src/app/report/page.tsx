@@ -388,6 +388,13 @@ const handlePrint = () => {
                                 <th>Total</th>
                                 <th style={{ background: "#fef9c3", color: "#713f12" }}>Due for {MONTHS[month - 1]} {year} ✏️</th>
                                 <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>Rent Expense − Due</th>
+
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                    Rent Expense As Of {MONTHS[month - 1]} {year}
+                                </th>
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                    Due Difference As Of {MONTHS[month - 1]} {year}
+                                </th>
                                 <th style={{ background: "#e0f2fe", color: "#075985" }}>Prepaid Office Rent ✏️</th>
                                 <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th>
                                 <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th>
@@ -460,7 +467,16 @@ const handlePrint = () => {
                                             <td className="number" style={{ background: "#f0fdf4", fontWeight: 600, color: "#065f46" }}>
                                                 {fmt(row.rentMinusDue)}
                                             </td>
-                                         
+                                            {/* Rent Expense As Of */}
+                                            <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
+                                                {fmt(row.rentExpenseAsOf)}
+                                            </td>
+
+                                            {/* Due Difference As Of */}
+                                            <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
+                                                {fmt(row.dueDifferenceAsOf)}
+                                            </td>
+
 
                                             {/* ✏️ Editable: Prepaid Office Rent + Auto-Calc button */}
                                             <td className="editable-cell" style={{ background: "#eff6ff" }}>
