@@ -372,7 +372,7 @@ public class AmortizationService {
                       // ── NEW CUMULATIVE COLUMNS (Office) ─────────────────────
             officeRow.setRentExpenseAsOf(computeCumulativeRentExpenseAsOf(lease, null, officeRow, month, year));
            officeRow.setDueDifferenceAsOf(
-    computeDueDifferenceAsOf(lease, null, officeRow, month, year, rows)
+    computeDueDifferenceAsOf(lease, null, officeRow, month, year)
 );
             rows.add(officeRow);
 
@@ -435,7 +435,7 @@ public class AmortizationService {
                                // ── NEW CUMULATIVE COLUMNS (Stamp Duty) ─────────────────────
                                
                 sdRow.setRentExpenseAsOf(computeCumulativeRentExpenseAsOf(lease, sd, sdRow, month, year));
-                sdRow.setDueDifferenceAsOf(computeDueDifferenceAsOf(lease, sd, sdRow, month, year,rows));
+                sdRow.setDueDifferenceAsOf(computeDueDifferenceAsOf(lease, sd, sdRow, month, year));
                 rows.add(sdRow);
 
                 // Total = officeRentExpense + stampDutyRentExpense (on SD row only)
@@ -1032,42 +1032,59 @@ public PrepaidSuggestionResponse calculatePrepaidSuggestion(Long leaseId, boolea
      * Sum of Due for all months from contract start up to (and including) the report month.
      * For the CURRENT month only: if Due == 0 → add full Rent Expense instead.
      */
-   private BigDecimal computeCumulativeRentExpenseAsOf(
+    private BigDecimal safe(BigDecimal val) {
+    return val != null ? val : BigDecimal.ZERO;
+}
+private BigDecimal computeCumulativeRentExpenseAsOf(
         LeaseContract lease, StampDutyContract sd,
         AmortizationReportRow currentRow,
         int targetMonth, int targetYear) {
 
     BigDecimal cum = BigDecimal.ZERO;
+
+    boolean prepaidTriggered = false;
+
     LocalDate contractStart = lease.getContractStartDate();
     YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
     YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
 
     while (!ym.isAfter(targetYm)) {
+
         int m = ym.getMonthValue();
         int y = ym.getYear();
 
         BigDecimal due, rent;
 
         if (ym.equals(targetYm)) {
-            due  = currentRow.getDueForMonth() != null ? currentRow.getDueForMonth() : BigDecimal.ZERO;
-            rent = currentRow.getRentExpenseForMonth() != null ? currentRow.getRentExpenseForMonth() : BigDecimal.ZERO;
+            due  = safe(currentRow.getDueForMonth());
+            rent = safe(currentRow.getRentExpenseForMonth());
         } else {
             AmortizationReportRow row = buildRowForAnyMonth(lease, sd, m, y);
-            due  = row.getDueForMonth() != null ? row.getDueForMonth() : BigDecimal.ZERO;
-            rent = row.getRentExpenseForMonth() != null ? row.getRentExpenseForMonth() : BigDecimal.ZERO;
+            due  = safe(row.getDueForMonth());
+            rent = safe(row.getRentExpenseForMonth());
         }
 
-        // ✅ APPLY RULE TO ALL MONTHS
-        if (due.compareTo(BigDecimal.ZERO) == 0) {
-            cum = cum.add(rent).setScale(SCALE, RM);
+        //  FIXED LOGIC
+        if (!prepaidTriggered) {
+
+            if (due.compareTo(BigDecimal.ZERO) > 0) {
+                // normal accumulation
+                cum = cum.add(due);
+            } else {
+                // prepaid month → ADD rent ON TOP of previous cum
+                cum = cum.add(rent);
+                prepaidTriggered = true;
+            }
+
         } else {
-            cum = cum.add(due).setScale(SCALE, RM);
+            //  AFTER prepaid → only current rent
+            cum = rent;
         }
 
         ym = ym.plusMonths(1);
     }
 
-    return cum;
+    return cum.setScale(SCALE, RM);
 }
     /**
      * Cumulative "Due Difference As Of [Month]":
@@ -1080,40 +1097,82 @@ public PrepaidSuggestionResponse calculatePrepaidSuggestion(Long leaseId, boolea
      * Uses the same month-loop pattern as computeCumulativeRentExpenseAsOf 
      * so it matches the behaviour you already like for Rent Expense As Of.
      */
-    private BigDecimal computeDueDifferenceAsOf(
-            LeaseContract lease, StampDutyContract sd,
-            AmortizationReportRow currentRow,
-            int targetMonth, int targetYear,
-            List<AmortizationReportRow> allRows) {   // allRows is kept for signature only - not used
+ private BigDecimal computeDueDifferenceAsOf(
+        LeaseContract lease, StampDutyContract sd,
+        AmortizationReportRow currentRow,
+        int targetMonth, int targetYear) {
 
-        BigDecimal cum = BigDecimal.ZERO;
-        LocalDate contractStart = lease.getContractStartDate();
-        YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
-        YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
+    BigDecimal cum = BigDecimal.ZERO;
+    boolean prepaidTriggered = false;
 
-        while (!ym.isAfter(targetYm)) {
-            int m = ym.getMonthValue();
-            int y = ym.getYear();
+    LocalDate contractStart = lease.getContractStartDate();
+    YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
+    YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
 
-            BigDecimal val;
-            if (ym.equals(targetYm)) {
-                // current/target month → use the row that was already built
-                val = currentRow.getRentMinusDue() != null 
-                        ? currentRow.getRentMinusDue() 
-                        : BigDecimal.ZERO;
-            } else {
-                // previous months → build the correct row (handles previous contracts automatically)
-                AmortizationReportRow row = buildRowForAnyMonth(lease, sd, m, y);
-                val = row.getRentMinusDue() != null 
-                        ? row.getRentMinusDue() 
-                        : BigDecimal.ZERO;
+    System.out.println("===== START computeDueDifferenceAsOf =====");
+    System.out.println("Target: " + targetYm);
+    System.out.println("------------------------------------------");
+
+    while (!ym.isAfter(targetYm)) {
+
+        BigDecimal val;
+        BigDecimal due;
+
+        if (ym.equals(targetYm)) {
+            due = safe(currentRow.getDueForMonth());
+            val = safe(currentRow.getRentMinusDue());
+            System.out.println(">> USING CURRENT ROW");
+        } else {
+            AmortizationReportRow row =
+                buildRowForAnyMonth(lease, sd, ym.getMonthValue(), ym.getYear());
+
+            due = safe(row.getDueForMonth());
+            val = safe(row.getRentMinusDue());
+            System.out.println(">> USING BUILT ROW");
+        }
+
+        // 🔍 BEFORE processing
+        System.out.println(
+            "Month: " + ym +
+            " | due=" + due +
+            " | val(Rent-Due)=" + val +
+            " | cum(before)=" + cum +
+            " | prepaidTriggered(before)=" + prepaidTriggered
+        );
+
+        if (!prepaidTriggered) {
+
+            cum = cum.add(val);
+
+            // 🔥 SAFE detection
+            if (due.compareTo(BigDecimal.ZERO) == 0
+                    && val.compareTo(BigDecimal.ZERO) == 0) {
+                System.out.println(">>> PREPAID DETECTED HERE!");
+                prepaidTriggered = true;
             }
 
-            cum = cum.add(val).setScale(SCALE, RM);
-            ym = ym.plusMonths(1);
+        } else {
+            System.out.println(">>> RESET MODE (post-prepaid)");
+            cum = val;
         }
-        return cum;
+
+        // 🔍 AFTER processing
+        System.out.println(
+            "Month: " + ym +
+            " | cum(after)=" + cum +
+            " | prepaidTriggered(after)=" + prepaidTriggered
+        );
+
+        System.out.println("------------------------------------------");
+
+        ym = ym.plusMonths(1);
     }
+
+    System.out.println("FINAL RESULT: " + cum);
+    System.out.println("===== END computeDueDifferenceAsOf =====");
+
+    return cum.setScale(SCALE, RM);
+}
     /**
      * Helper: builds the row for ANY month, automatically using the correct contract
      * (previous contract if the month is before the current lease start date).
@@ -1131,6 +1190,7 @@ public PrepaidSuggestionResponse calculatePrepaidSuggestion(Long leaseId, boolea
                 }
             }
         }
+        
         // Normal case: use current lease
         return buildRow(lease, sd, month, year);
     } 
