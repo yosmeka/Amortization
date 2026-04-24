@@ -1,4 +1,28 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
+function getAuthHeaders() {
+    const token = localStorage.getItem("token");
+
+    return {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+    };
+}
+export function getUserFromToken() {
+    if (typeof window === "undefined") return null;
+
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return {
+            username: payload.sub,
+            role: payload.role,
+        };
+    } catch {
+        return null;
+    }
+}
 
 export interface LeaseContractRequest {
     branchName: string;
@@ -90,6 +114,24 @@ export interface AmortizationReportRow {
 
 }
 
+
+export interface LoginRequest {
+    username: string;
+    password: string;
+}
+
+export interface RegisterRequest {
+    username: string;
+    password: string;
+    role: "MAKER" | "CHECKER"| "ADMIN";
+}
+
+export interface AuthResponse {
+    token: string;
+    username: string;
+    role: string;
+}
+
 /* ── Helpers ── */
 async function handleResponse<T>(res: Response): Promise<T> {
     if (!res.ok) {
@@ -110,7 +152,7 @@ export interface BulkUploadResult {
 export async function createLease(data: LeaseContractRequest) {
     const res = await fetch(`${API_BASE}/leases`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     return handleResponse<object>(res);
@@ -118,27 +160,52 @@ export async function createLease(data: LeaseContractRequest) {
 
 
 export async function fetchLeases() {
-    const res = await fetch(`${API_BASE}/leases`);
+    const res = await fetch(`${API_BASE}/leases`, {
+        headers: getAuthHeaders(),
+    });
     return handleResponse<object[]>(res);
 }
 
 export async function fetchLease(id: number) {
-    const res = await fetch(`${API_BASE}/leases/${id}`);
+    const res = await fetch(`${API_BASE}/leases/${id}`, {
+        headers: getAuthHeaders(),
+    });
     return handleResponse<object>(res);
 }
 
 export async function updateLease(id: number, data: LeaseContractRequest) {
     const res = await fetch(`${API_BASE}/leases/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     return handleResponse<object>(res);
 }
 
 export async function deleteLease(id: number) {
-    const res = await fetch(`${API_BASE}/leases/${id}`, { method: "DELETE" });
+    const res = await fetch(`${API_BASE}/leases/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+export async function loginUser(data: LoginRequest): Promise<AuthResponse> {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+
+    return handleResponse<AuthResponse>(res);
+}
+export async function registerUser(data: RegisterRequest): Promise<object> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+
+    return handleResponse<object>(res);
 }
 
 export interface RenewalPrefill {
@@ -169,7 +236,9 @@ export interface RenewalPrefill {
 }
 
 export async function fetchRenewalPrefill(id: number): Promise<RenewalPrefill> {
-    const res = await fetch(`${API_BASE}/leases/${id}/renewal-prefill`);
+    const res = await fetch(`${API_BASE}/leases/${id}/renewal-prefill`, {
+        headers: getAuthHeaders(),
+    });
     return handleResponse<RenewalPrefill>(res);
 }
 
@@ -177,7 +246,11 @@ export async function fetchRenewalPrefill(id: number): Promise<RenewalPrefill> {
 export async function bulkUploadLeases(file: File): Promise<BulkUploadResult> {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${API_BASE}/leases/upload`, { method: "POST", body: form });
+    const res = await fetch(`${API_BASE}/leases/upload`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: form
+    });
     return handleResponse<BulkUploadResult>(res);
 }
 
@@ -185,7 +258,9 @@ export async function bulkUploadLeases(file: File): Promise<BulkUploadResult> {
 export async function fetchReport(month: number, year: number, category?: string): Promise<AmortizationReportRow[]> {
     const params = new URLSearchParams({ month: String(month), year: String(year) });
     if (category) params.append("category", category);
-    const res = await fetch(`${API_BASE}/amortization/report?${params}`);
+    const res = await fetch(`${API_BASE}/amortization/report?${params}`, {
+        headers: getAuthHeaders(),
+    });
     return handleResponse<AmortizationReportRow[]>(res);
 }
 
@@ -204,7 +279,7 @@ export async function saveEntry(
 ) {
     const res = await fetch(`${API_BASE}/amortization/entries`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
             leaseId,
             stampDuty: isStampDuty,

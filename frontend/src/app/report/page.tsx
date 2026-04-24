@@ -3,15 +3,12 @@ import { useState } from "react";
 import { AmortizationReportRow, fetchReport, saveEntry } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import {useAuthGuard} from "@/hooks/useAuthGuard";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
 ];
-
-
-
-
 
 function fmt(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
@@ -29,6 +26,7 @@ const CATEGORIES = ["ATM", "Outline", "City"];
 
 
 export default function ReportPage() {
+    useAuthGuard();
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
