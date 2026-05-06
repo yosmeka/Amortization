@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { fetchLease, updateLease, LeaseContractRequest } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -79,6 +80,7 @@ function toForm(data: any): LeaseContractRequest {
 }
 
 function EditLeasePageInner() {
+    useAuthGuard();
     const router = useRouter();
     const params = useParams();
     const id = Number(params.id);

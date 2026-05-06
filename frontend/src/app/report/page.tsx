@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
-import { AmortizationReportRow, fetchReport, saveEntry } from "@/lib/api";
+import { AmortizationReportRow, fetchReport, saveEntry, fetchPrepaidSuggestion } from "@/lib/api";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import {useAuthGuard} from "@/hooks/useAuthGuard";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -23,6 +26,7 @@ const CATEGORIES = ["ATM", "Outline", "City"];
 
 
 export default function ReportPage() {
+    useAuthGuard();
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
@@ -33,6 +37,106 @@ export default function ReportPage() {
     const [saving, setSaving] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
+    const [toast, setToast] = useState<{ 
+    message: string; 
+    type: "success" | "error" 
+} | null>(null);
+
+    const exportToExcel = () => {
+        if (!rows.length) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const data = rows.map((r, index) => ({
+            "S/No": r.stampDutyRow ? "" : index + 1,
+            "Category of Rent": r.categoryOfRent,
+            "Branch Name": r.branchName,
+            "Branch Code": r.branchCode,
+            "Owner Name": r.ownerName,
+            "Contract Start": fmtDate(r.contractStartDate),
+            "Contract End": fmtDate(r.contractEndDate),
+            "Total No. of Years": r.totalNumberOfYears,
+            "Payment Paid to Date": fmtDate(r.paymentPaidToDate),
+            "Year with Fraction": r.yearWithFraction,
+            "Meter Square": r.meterSquare,
+            "Price/m² Before VAT": r.meterSquarePriceBeforeVat,
+            "Price/m² After VAT": r.meterSquarePriceAfterVat,
+            "Monthly Rent with VAT": r.monthlyRentWithVat,
+            "Total Annual Rent": r.totalAnnualRentAmount,
+            "Utility / Service Charge": r.utilityPayment,
+            "Full Payment": r.fullPayment,
+            "Total Payment Paid": r.totalPaymentPaidToDate,
+            "Remaining Payment": r.remainingPayment,
+            "Outstanding Balance (Prev)": r.outstandingBalancePriorMonth,
+            "Rent Expense": r.rentExpenseForMonth,
+            "Total": r.total,
+            "Due": r.dueForMonth,
+            "Rent Expense − Due": r.rentMinusDue,
+            "Prepaid": r.prepaidOfficeRent,
+            "Additional Expense": r.additionalExpense,
+            "Day": r.entryDay,
+            "Outstanding End": r.outstandingBalanceEndOfMonth
+        }));
+
+        // Add total row
+        const totalRow = {
+            "S/No": "TOTAL",
+            "Category of Rent": "",
+            "Branch Name": "",
+            "Branch Code": "",
+            "Owner Name": "",
+            "Contract Start": "",
+            "Contract End": "",
+            "Total No. of Years": 0, // Updated to match expected type
+            "Payment Paid to Date": "", // Updated to match expected type
+            "Year with Fraction": 0, // Updated to match expected type
+            "Meter Square": rows.reduce((sum, r) => sum + (r.meterSquare || 0), 0),
+            "Price/m² Before VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceBeforeVat || 0), 0),
+            "Price/m² After VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceAfterVat || 0), 0),
+            "Monthly Rent with VAT": rows.reduce((sum, r) => sum + (r.monthlyRentWithVat || 0), 0),
+            "Total Annual Rent": rows.reduce((sum, r) => sum + (r.totalAnnualRentAmount || 0), 0),
+            "Utility / Service Charge": rows.reduce((sum, r) => sum + (r.utilityPayment || 0), 0),
+            "Full Payment": rows.reduce((sum, r) => sum + (r.fullPayment || 0), 0),
+            "Total Payment Paid": rows.reduce((sum, r) => sum + (r.totalPaymentPaidToDate || 0), 0),
+            "Remaining Payment": rows.reduce((sum, r) => sum + (r.remainingPayment || 0), 0),
+            "Outstanding Balance (Prev)": rows.reduce((sum, r) => sum + (r.outstandingBalancePriorMonth || 0), 0),
+            "Rent Expense": rows.reduce((sum, r) => sum + (r.rentExpenseForMonth || 0), 0),
+            "Total": rows.reduce((sum, r) => sum + (r.total || 0), 0),
+            "Due": rows.reduce((sum, r) => sum + (r.dueForMonth || 0), 0),
+            "Rent Expense − Due": 0, // Updated to match expected type
+            "Prepaid": rows.reduce((sum, r) => sum + (r.prepaidOfficeRent || 0), 0),
+            "Additional Expense": rows.reduce((sum, r) => sum + (r.additionalExpense || 0), 0),
+            "Day": 0, // Updated to match expected type
+            "Outstanding End": rows.reduce((sum, r) => sum + (r.outstandingBalanceEndOfMonth || 0), 0)
+        };
+        data.push(totalRow);
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+
+        // Apply formatting
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+
+        // Adjust column widths
+        const columnWidths = Object.keys(data[0]).map(() => ({ wch: 20 }));
+        worksheet["!cols"] = columnWidths;
+
+        const excelBuffer = XLSX.write(workbook, {
+            bookType: "xlsx",
+            type: "array"
+        });
+
+        const file = new Blob([excelBuffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+
+        saveAs(file, `Amortization_Report_${month}_${year}.xlsx`);
+    };
+const handlePrint = () => {
+    window.print();
+};
+
     // Editable fields per row (key = `${leaseId}-${isSD}`)
     const [edits, setEdits] = useState<Record<string, {
         rentExpense: string;   // override; empty = auto-calculate
@@ -42,6 +146,8 @@ export default function ReportPage() {
         entryDay: string;     // 1-31 or empty
     }>>({});
 
+
+    
     const load = async () => {
         setLoading(true); setError("");
         try {
@@ -68,19 +174,37 @@ export default function ReportPage() {
         setEdits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
 
     const calcPrepaid = async (row: AmortizationReportRow) => {
-        const key = `${row.leaseContractId}-${row.stampDutyRow}`;
-        try {
-            const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
-            const res = await fetch(
-                `${API_BASE}/amortization/prepaid-suggestion?leaseId=${row.leaseContractId}&month=${month}&year=${year}&stampDuty=${row.stampDutyRow}`
-            );
-            if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
+    const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+    try {
+        const data = await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
+
+       if (data.alreadyFilled) {
+            const monthName = MONTHS[(data.filledMonth || 1) - 1];
+            const amount = data.filledAmount
+                ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 2 })
+                : "0.00";
+
+            setToast({
+                type: "success",
+                message: `Prepaid has already been filled on ${monthName} ${data.filledYear} with amount ${amount}.`,
+            });
+
+            // Auto-hide toast after 5 seconds
+            setTimeout(() => setToast(null), 5000);
+
+            handleEdit(key, "prepaid", "0");
+        } else {
+            // Normal suggestion
             handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
-        } catch {
-            alert("Could not calculate prepaid suggestion. Please try again.");
         }
-    };
+    } catch {
+        setToast({
+            type: "error",
+            message: "Could not calculate prepaid suggestion. Please try again.",
+        });
+        setTimeout(() => setToast(null), 4000);
+    }
+};
 
     const handleSave = async (row: AmortizationReportRow) => {
         const key = `${row.leaseContractId}-${row.stampDutyRow}`;
@@ -118,6 +242,14 @@ export default function ReportPage() {
 
     return (
         <div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginBottom: "1rem" }}>
+            <button onClick={exportToExcel} className="btn btn-success btn-sm">
+                📥 Export Excel
+            </button>
+            <button onClick={handlePrint} className="btn btn-secondary btn-sm">
+                🖨 Print
+            </button>
+        </div>
             <div className="page-header">
                 <h2>Monthly Amortization Report</h2>
                 <p>Select a month and year to generate the full 22-column report. Edit &quot;Due&quot; and &quot;Prepaid&quot; inline then click Save.</p>
@@ -147,6 +279,44 @@ export default function ReportPage() {
                 >
                     {loading ? "⏳ Generating…" : "📊 Generate Report"}
                 </button>
+
+                {toast && (
+    <div
+        style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            background: toast.type === "success" ? "#10b981" : "#ef4444",
+            color: "white",
+            padding: "14px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            zIndex: 9999,
+            fontSize: "0.95rem",
+            maxWidth: "380px",
+        }}
+    >
+        {toast.type === "success" ? "✅" : "❌"}
+        <span style={{ flex: 1 }}>{toast.message}</span>
+        <button
+            onClick={() => setToast(null)}
+            style={{
+                background: "none",
+                border: "none",
+                color: "white",
+                fontSize: "1.4rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                padding: 0,
+            }}
+        >
+            ×
+        </button>
+    </div>
+)}
                 {/* Search */}
                 <input
                     type="search"
@@ -203,6 +373,13 @@ export default function ReportPage() {
                                 <th>Total</th>
                                 <th style={{ background: "#fef9c3", color: "#713f12" }}>Due for {MONTHS[month - 1]} {year} ✏️</th>
                                 <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>Rent Expense − Due</th>
+
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                    Rent Expense As Of {MONTHS[month - 1]} {year}
+                                </th>
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                    Due Difference As Of {MONTHS[month - 1]} {year}
+                                </th>
                                 <th style={{ background: "#e0f2fe", color: "#075985" }}>Prepaid Office Rent ✏️</th>
                                 <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th>
                                 <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th>
@@ -275,6 +452,16 @@ export default function ReportPage() {
                                             <td className="number" style={{ background: "#f0fdf4", fontWeight: 600, color: "#065f46" }}>
                                                 {fmt(row.rentMinusDue)}
                                             </td>
+                                            {/* Rent Expense As Of */}
+                                            <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
+                                                {fmt(row.rentExpenseAsOf)}
+                                            </td>
+
+                                            {/* Due Difference As Of */}
+                                            <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
+                                                {fmt(row.dueDifferenceAsOf)}
+                                            </td>
+
 
                                             {/* ✏️ Editable: Prepaid Office Rent + Auto-Calc button */}
                                             <td className="editable-cell" style={{ background: "#eff6ff" }}>
