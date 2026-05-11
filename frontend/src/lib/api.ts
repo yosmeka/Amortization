@@ -159,12 +159,38 @@ export async function createLease(data: LeaseContractRequest) {
 }
 
 
-export async function fetchLeases() {
-    const res = await fetch(`${API_BASE}/leases`, {
+export async function fetchLeases(status?: string) {
+    const url = status ? `${API_BASE}/leases?status=${status}` : `${API_BASE}/leases`;
+    const res = await fetch(url, {
         headers: getAuthHeaders(),
     });
     return handleResponse<object[]>(res);
 }
+
+export async function fetchPendingLeases() {
+    const res = await fetch(`${API_BASE}/leases/pending`, {
+        headers: getAuthHeaders(),
+    });
+    return handleResponse<object[]>(res);
+}
+
+export async function approveContract(id: number) {
+    const res = await fetch(`${API_BASE}/leases/${id}/approve`, {
+        method: "PUT",
+        headers: getAuthHeaders()
+    });
+    return handleResponse<object>(res);
+}
+
+export async function rejectContract(id: number, comment: string) {
+    const res = await fetch(`${API_BASE}/leases/${id}/reject`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment })
+    });
+    return handleResponse<object>(res);
+}
+
 
 export async function fetchLease(id: number) {
     const res = await fetch(`${API_BASE}/leases/${id}`, {

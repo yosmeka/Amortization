@@ -34,10 +34,51 @@ public class LeaseContractController {
         return ResponseEntity.ok(saved);
     }
 
-    /** List all lease contracts */
+    /** List all lease contracts (optionally filtered by status) */
     @GetMapping
-    public ResponseEntity<List<LeaseContract>> getAllLeases() {
-        return ResponseEntity.ok(leaseRepo.findAll());
+    public ResponseEntity<List<LeaseContract>> getAllLeases(@RequestParam(required = false) String status) {
+        List<LeaseContract> all = leaseRepo.findAll();
+        if (status != null && !status.isBlank()) {
+            all = all.stream()
+                     .filter(l -> l.getApprovalStatus() != null && l.getApprovalStatus().name().equalsIgnoreCase(status))
+                     .toList();
+        }
+        return ResponseEntity.ok(all);
+    }
+
+    /** List ONLY pending contracts (helper) */
+    @GetMapping("/pending")
+    public ResponseEntity<List<LeaseContract>> getPendingLeases() {
+        List<LeaseContract> pending = leaseRepo.findAll().stream()
+                .filter(l -> l.getApprovalStatus() == com.zemenbank.amortization.enums.ApprovalStatus.PENDING)
+                .toList();
+        return ResponseEntity.ok(pending);
+    }
+
+    /** Checker approves a contract */
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<LeaseContract> approveContract(@PathVariable Long id, java.security.Principal principal) {
+        String checker = (principal != null) ? principal.getName() : "system";
+        try {
+            return ResponseEntity.ok(amortizationService.approveContract(id, checker));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /** Checker rejects a contract */
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<LeaseContract> rejectContract(
+            @PathVariable Long id, 
+            @RequestBody java.util.Map<String, String> body, 
+            java.security.Principal principal) {
+        String checker = (principal != null) ? principal.getName() : "system";
+        String comment = body.getOrDefault("comment", "No comment provided");
+        try {
+            return ResponseEntity.ok(amortizationService.rejectContract(id, checker, comment));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /** Get a single lease contract by ID */

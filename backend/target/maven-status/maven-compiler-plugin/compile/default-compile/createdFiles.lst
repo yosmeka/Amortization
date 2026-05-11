@@ -27,6 +27,7 @@ com\zemenbank\amortization\service\ExcelImportService$1.class
 com\zemenbank\amortization\dto\LeaseContractRequest.class
 com\zemenbank\amortization\dto\BulkUploadResult.class
 com\zemenbank\amortization\config\SecurityConfig.class
+com\zemenbank\amortization\enums\ApprovalStatus.class
 com\zemenbank\amortization\entity\User.class
 com\zemenbank\amortization\service\ExcelImportService.class
 com\zemenbank\amortization\dto\BulkUploadResult$RowError.class
