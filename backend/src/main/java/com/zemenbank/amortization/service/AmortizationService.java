@@ -18,8 +18,10 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -194,21 +196,23 @@ public class AmortizationService {
     // =========================================================
     // REPORT GENERATION for a given month/year
     // =========================================================
+   
+
 
     @Transactional
     public List<AmortizationReportRow> generateReport(int month, int year, String category) {
         List<LeaseContract> allLeases = leaseRepo.findAll();
         List<AmortizationReportRow> rows = new ArrayList<>();
-        java.util.Map<String, AmortizationReportRow> rowCache = new java.util.HashMap<>();
+        Map<String, AmortizationReportRow> rowCache = new HashMap<>();
 
         List<AmortizationEntry> allEntries = entryRepo.findAll();
         InMemoryEntryCache entryCache = new InMemoryEntryCache(allEntries);
-LocalDate reportStart = LocalDate.of(year, month, 1);
+        LocalDate reportStart = LocalDate.of(year, month, 1);
         LocalDate reportEnd = reportStart.withDayOfMonth(reportStart.lengthOfMonth());
 
         // ── Superseded contracts ──────────────────────────────────────────────────
         // Old contract is superseded when a renewal's contractStartDate ≤ reportStart.
-        java.util.Set<Long> supersededIds = leaseRepo.findSupersededContractIds(reportStart);
+        Set<Long> supersededIds = leaseRepo.findSupersededContractIds(reportStart);
 
         // ── Overlap month pre-pass ────────────────────────────────────────────────
         // An overlap occurs when a new (renewed) contract starts WITHIN the report
@@ -226,14 +230,14 @@ LocalDate reportStart = LocalDate.of(year, month, 1);
         // oldPartial = oldMonthlyRent × daysOld / daysInMonth
         // NOTE: days 25-31 (7 days including day 25) belong to the new contract and are
         // already prorated correctly in buildRow via calcProratedRent.
-        java.util.Map<Long, BigDecimal> overlapOldRents       = new java.util.HashMap<>(); // newLeaseId → office oldPartialRent
-        java.util.Map<Long, BigDecimal> overlapOldPrior       = new java.util.HashMap<>(); // newLeaseId → office old prior balance
-        java.util.Map<Long, BigDecimal> overlapOldMonthlyRent = new java.util.HashMap<>(); // newLeaseId → office old full MR
+        Map<Long, BigDecimal> overlapOldRents       = new HashMap<>(); // newLeaseId → office oldPartialRent
+        Map<Long, BigDecimal> overlapOldPrior       = new HashMap<>(); // newLeaseId → office old prior balance
+        Map<Long, BigDecimal> overlapOldMonthlyRent = new HashMap<>(); // newLeaseId → office old full MR
         // Stamp duty equivalents
-        java.util.Map<Long, BigDecimal> sdOverlapOldRents       = new java.util.HashMap<>();
-        java.util.Map<Long, BigDecimal> sdOverlapOldPrior       = new java.util.HashMap<>();
-        java.util.Map<Long, BigDecimal> sdOverlapOldMonthlyRent = new java.util.HashMap<>();
-        java.util.Set<Long> overlapHidden = new java.util.HashSet<>();
+        Map<Long, BigDecimal> sdOverlapOldRents       = new HashMap<>();
+        Map<Long, BigDecimal> sdOverlapOldPrior       = new HashMap<>();
+        Map<Long, BigDecimal> sdOverlapOldMonthlyRent = new HashMap<>();
+        Set<Long> overlapHidden = new HashSet<>();
 
         for (LeaseContract candidate : allLeases) {
             if (candidate.getPreviousContractId() == null)
@@ -358,7 +362,7 @@ LocalDate reportStart = LocalDate.of(year, month, 1);
                 BigDecimal overlapDue = officeRow.getDueForMonth();
                 officeRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
             }
-
+           
             if (officeExpired) {
                 // Amortization finished: force outstanding to 0, but respect user overrides
                 BigDecimal monthlyRent = officeRow.getMonthlyRentWithVat();
@@ -372,7 +376,13 @@ LocalDate reportStart = LocalDate.of(year, month, 1);
                     officeRow.setDueForMonth(monthlyRent);
                 }
             }
-                      // ── NEW CUMULATIVE COLUMNS (Office) ─────────────────────
+            
+             String officeKey =
+        lease.getId() + "-0-" + month + "-" + year;
+
+rowCache.put(officeKey, officeRow);
+
+            // ── NEW CUMULATIVE COLUMNS (Office) ─────────────────────
             officeRow.setRentExpenseAsOf(computeCumulativeRentExpenseAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
            officeRow.setDueDifferenceAsOf(
     computeDueDifferenceAsOf(lease, null, officeRow, month, year, rowCache, entryCache)
@@ -1094,46 +1104,56 @@ private BigDecimal computeCumulativeRentExpenseAsOf(
         LeaseContract lease, StampDutyContract sd,
         AmortizationReportRow currentRow,
         int targetMonth, int targetYear,
-        java.util.Map<String, AmortizationReportRow> rowCache, InMemoryEntryCache entryCache) {
+        Map<String, AmortizationReportRow> rowCache, InMemoryEntryCache entryCache) {
 
-    BigDecimal cum = BigDecimal.ZERO;
+    BigDecimal 
+    cum = BigDecimal.ZERO;
     boolean prepaidTriggered = false;
 
     LocalDate contractStart = lease.getContractStartDate();
     YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
     YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
 
-    while (!ym.isAfter(targetYm)) {
+   while (!ym.isAfter(targetYm)) {
 
-        BigDecimal val;
-        BigDecimal due;
+    String key = lease.getId() + "-" +
+            (sd != null ? sd.getId() : "0") + "-" +
+            ym.getMonthValue() + "-" + ym.getYear();
 
-        if (ym.equals(targetYm)) {
-            due = safe(currentRow.getDueForMonth());
-            val = safe(currentRow.getRentMinusDue());
-        } else {
-            AmortizationReportRow row =
-                buildRowForAnyMonth(lease, sd, ym.getMonthValue(), ym.getYear(), rowCache, entryCache);
+    AmortizationReportRow row = rowCache.get(key);
 
-            due = safe(row.getDueForMonth());
-            val = safe(row.getRentMinusDue());
-        }
+    if (row == null) {
+        row = buildRowForAnyMonth(
+                lease,
+                sd,
+                ym.getMonthValue(),
+                ym.getYear(),
+                rowCache,
+                entryCache
+        );
 
-        if (!prepaidTriggered) {
-            cum = cum.add(val);
-
-            // 🔥 SAFE detection
-            if (due.compareTo(BigDecimal.ZERO) == 0
-                    && val.compareTo(BigDecimal.ZERO) == 0) {
-                prepaidTriggered = true;
-            }
-        } else {
-            cum = val;
-        }
-
-        ym = ym.plusMonths(1);
+        rowCache.put(key, row);
     }
 
+    BigDecimal due = safe(row.getDueForMonth());
+    BigDecimal val = safe(row.getRentMinusDue());
+
+    if (!prepaidTriggered) {
+        cum = cum.add(val);
+
+        // prepaid month reached
+        if (due.compareTo(BigDecimal.ZERO) == 0
+                && val.compareTo(BigDecimal.ZERO) == 0) {
+            prepaidTriggered = true;
+        }
+
+    } else {
+        // after prepaid → only current month value
+        cum = val;
+    }
+
+    ym = ym.plusMonths(1);
+}
     return cum.setScale(SCALE, RM);
 }
     /**
