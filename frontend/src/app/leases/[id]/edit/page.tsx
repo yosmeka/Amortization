@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { fetchLease, updateLease, LeaseContractRequest } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -79,6 +80,7 @@ function toForm(data: any): LeaseContractRequest {
 }
 
 function EditLeasePageInner() {
+    useAuthGuard();
     const router = useRouter();
     const params = useParams();
     const id = Number(params.id);
@@ -302,10 +304,17 @@ function EditLeasePageInner() {
                 </div>
                 {form.hasStampDuty && (
                     <div className="form-grid">
-                        <div className="form-group">
-                            <label>Stamp Duty Full Payment</label>
-                            <input type="number" step="0.01" value={form.stampDuty?.stampDutyFullPayment ?? 0}
+                        <div className="form-group" style={{ gridColumn: "span 2" }}>
+                            <label style={{ color: "#b45309", fontWeight: 700, fontSize: "0.85rem" }}>
+                                Full Payment / Total Contract Payment (Stamp Duty) *
+                            </label>
+                            <input type="number" step="0.01" className="form-control"
+                                style={{ borderColor: "#d97706", borderWidth: 2 }}
+                                value={form.stampDuty?.stampDutyFullPayment ?? 0}
                                 onChange={e => setSD("stampDutyFullPayment", parseFloat(e.target.value) || 0)} />
+                            <span style={{ fontSize: "0.75rem", color: "#92400e" }}>
+                                Monthly Rent = Full Payment ÷ (Total Years × 12). No VAT applied.
+                            </span>
                         </div>
                         <div className="form-group">
                             <label>Meter Square (m²)</label>

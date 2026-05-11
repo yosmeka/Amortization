@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createLease, fetchRenewalPrefill, RenewalPrefill, LeaseContractRequest } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -32,6 +33,7 @@ const EMPTY_FORM: LeaseContractRequest = {
 };
 
 function NewLeasePageInner() {
+    useAuthGuard();
     const router = useRouter();
     const searchParams = useSearchParams();
     const renewFromId = searchParams.get("renewFrom");
