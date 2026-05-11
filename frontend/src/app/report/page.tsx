@@ -70,9 +70,11 @@ export default function ReportPage() {
             "Remaining Payment": r.remainingPayment,
             "Outstanding Balance (Prev)": r.outstandingBalancePriorMonth,
             "Rent Expense": r.rentExpenseForMonth,
-            "Total": r.total,
+            // "Total": r.total,
             "Due": r.dueForMonth,
             "Rent Expense − Due": r.rentMinusDue,
+            "Reent Expense As Of": r.rentExpenseAsOf,
+            "Due Difference As Of": r.dueDifferenceAsOf,
             "Prepaid": r.prepaidOfficeRent,
             "Additional Expense": r.additionalExpense,
             "Day": r.entryDay,
@@ -102,9 +104,11 @@ export default function ReportPage() {
             "Remaining Payment": rows.reduce((sum, r) => sum + (r.remainingPayment || 0), 0),
             "Outstanding Balance (Prev)": rows.reduce((sum, r) => sum + (r.outstandingBalancePriorMonth || 0), 0),
             "Rent Expense": rows.reduce((sum, r) => sum + (r.rentExpenseForMonth || 0), 0),
-            "Total": rows.reduce((sum, r) => sum + (r.total || 0), 0),
+            // "Total": rows.reduce((sum, r) => sum + (r.total || 0), 0),
             "Due": rows.reduce((sum, r) => sum + (r.dueForMonth || 0), 0),
             "Rent Expense − Due": 0, // Updated to match expected type
+            "Reent Expense As Of": 0, // Updated to match expected type
+            "Due Difference As Of": 0, // Updated to match expected type
             "Prepaid": rows.reduce((sum, r) => sum + (r.prepaidOfficeRent || 0), 0),
             "Additional Expense": rows.reduce((sum, r) => sum + (r.additionalExpense || 0), 0),
             "Day": 0, // Updated to match expected type

@@ -244,13 +244,19 @@ export async function fetchRenewalPrefill(id: number): Promise<RenewalPrefill> {
 
 
 export async function bulkUploadLeases(file: File): Promise<BulkUploadResult> {
+    const token = localStorage.getItem("token");
+
     const form = new FormData();
     form.append("file", file);
+
     const res = await fetch(`${API_BASE}/leases/upload`, {
         method: "POST",
-        headers: getAuthHeaders(),
-        body: form
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        body: form,
     });
+
     return handleResponse<BulkUploadResult>(res);
 }
 
