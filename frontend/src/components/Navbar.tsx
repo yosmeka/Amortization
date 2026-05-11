@@ -76,6 +76,11 @@ export default function Navbar() {
                         📋 GL Ticket
                     </Link>
                 ) : null}
+                {role === "CHECKER" || role === "ADMIN" ? (
+                    <Link href="/approvals" className={path === "/approvals" ? "active" : ""}>
+                        🛡️ Pending Approvals
+                    </Link>
+                ) : null}
                 {/* 👤 USER DROPDOWN */}
                 <div style={{ marginLeft: "auto", position: "relative" }}>
                     <button

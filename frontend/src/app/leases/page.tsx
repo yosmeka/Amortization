@@ -16,6 +16,8 @@ interface Lease {
     meterSquarePriceBeforeVat: number;
     vatRate: number;
     monthlyRentWithVat?: number;
+    approvalStatus?: string;
+    checkerComment?: string;
 }
 
 function fmt(n: number) {
@@ -149,6 +151,7 @@ export default function LeasesPage() {
                                 <th>Price/m² (before VAT)</th>
                                 <th>Monthly Rent + VAT</th>
                                 <th>Stamp Duty</th>
+                                <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -156,7 +159,7 @@ export default function LeasesPage() {
                         <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={11} style={{
+                                    <td colSpan={12} style={{
                                         textAlign: "center",
                                         color: "#94a3b8",
                                         padding: "2rem"
@@ -186,6 +189,17 @@ export default function LeasesPage() {
 
                                         <td style={{ textAlign: "center" }}>
                                             {l.hasStampDuty ? "Yes" : "No"}
+                                        </td>
+
+                                        <td>
+                                            {l.approvalStatus === "PENDING" && <span style={{ background: "#fef08a", color: "#854d0e", padding: "2px 6px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}>🟡 PENDING</span>}
+                                            {l.approvalStatus === "APPROVED" && <span style={{ background: "#bbf7d0", color: "#166534", padding: "2px 6px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}>🟢 APPROVED</span>}
+                                            {l.approvalStatus === "REJECTED" && (
+                                                <div style={{display: "flex", flexDirection:"column", gap:"2px"}}>
+                                                    <span style={{ background: "#fecaca", color: "#991b1b", padding: "2px 6px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", width: "max-content" }}>🔴 REJECTED</span>
+                                                    <small style={{color: "#dc2626", fontSize:"11px", maxWidth:"150px"}}>{l.checkerComment}</small>
+                                                </div>
+                                            )}
                                         </td>
 
                                         {/* ACTIONS (UNCHANGED) */}

@@ -24,6 +24,7 @@ C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amort
 C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\UserDto.java
 C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\dto\LoginRequest.java
 C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\LeaseContractRepository.java
+C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\enums\ApprovalStatus.java
 C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\service\AuthenticationService.java
 C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\repository\UserRepository.java
 C:\Users\Muluye\Documents\Amortization\backend\src\main\java\com\zemenbank\amortization\service\AmortizationService.java

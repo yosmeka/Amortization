@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AmortizationReportRow, fetchReport, saveEntry, fetchPrepaidSuggestion } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import {useAuthGuard} from "@/hooks/useAuthGuard";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -37,10 +37,10 @@ export default function ReportPage() {
     const [saving, setSaving] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
-    const [toast, setToast] = useState<{ 
-    message: string; 
-    type: "success" | "error" 
-} | null>(null);
+    const [toast, setToast] = useState<{
+        message: string;
+        type: "success" | "error"
+    } | null>(null);
 
     const exportToExcel = () => {
         if (!rows.length) {
@@ -133,9 +133,9 @@ export default function ReportPage() {
 
         saveAs(file, `Amortization_Report_${month}_${year}.xlsx`);
     };
-const handlePrint = () => {
-    window.print();
-};
+    const handlePrint = () => {
+        window.print();
+    };
 
     // Editable fields per row (key = `${leaseId}-${isSD}`)
     const [edits, setEdits] = useState<Record<string, {
@@ -147,7 +147,7 @@ const handlePrint = () => {
     }>>({});
 
 
-    
+
     const load = async () => {
         setLoading(true); setError("");
         try {
@@ -174,37 +174,37 @@ const handlePrint = () => {
         setEdits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
 
     const calcPrepaid = async (row: AmortizationReportRow) => {
-    const key = `${row.leaseContractId}-${row.stampDutyRow}`;
-    try {
-        const data = await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
+        const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+        try {
+            const data = await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
 
-       if (data.alreadyFilled) {
-            const monthName = MONTHS[(data.filledMonth || 1) - 1];
-            const amount = data.filledAmount
-                ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 2 })
-                : "0.00";
+            if (data.alreadyFilled) {
+                const monthName = MONTHS[(data.filledMonth || 1) - 1];
+                const amount = data.filledAmount
+                    ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 2 })
+                    : "0.00";
 
+                setToast({
+                    type: "success",
+                    message: `Prepaid has already been filled on ${monthName} ${data.filledYear} with amount ${amount}.`,
+                });
+
+                // Auto-hide toast after 5 seconds
+                setTimeout(() => setToast(null), 5000);
+
+                handleEdit(key, "prepaid", "0");
+            } else {
+                // Normal suggestion
+                handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
+            }
+        } catch {
             setToast({
-                type: "success",
-                message: `Prepaid has already been filled on ${monthName} ${data.filledYear} with amount ${amount}.`,
+                type: "error",
+                message: "Could not calculate prepaid suggestion. Please try again.",
             });
-
-            // Auto-hide toast after 5 seconds
-            setTimeout(() => setToast(null), 5000);
-
-            handleEdit(key, "prepaid", "0");
-        } else {
-            // Normal suggestion
-            handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
+            setTimeout(() => setToast(null), 4000);
         }
-    } catch {
-        setToast({
-            type: "error",
-            message: "Could not calculate prepaid suggestion. Please try again.",
-        });
-        setTimeout(() => setToast(null), 4000);
-    }
-};
+    };
 
     const handleSave = async (row: AmortizationReportRow) => {
         const key = `${row.leaseContractId}-${row.stampDutyRow}`;
@@ -242,14 +242,14 @@ const handlePrint = () => {
 
     return (
         <div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginBottom: "1rem" }}>
-            <button onClick={exportToExcel} className="btn btn-success btn-sm">
-                📥 Export Excel
-            </button>
-            <button onClick={handlePrint} className="btn btn-secondary btn-sm">
-                🖨 Print
-            </button>
-        </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginBottom: "1rem" }}>
+                <button onClick={exportToExcel} className="btn btn-success btn-sm">
+                    📥 Export Excel
+                </button>
+                <button onClick={handlePrint} className="btn btn-secondary btn-sm">
+                    🖨 Print
+                </button>
+            </div>
             <div className="page-header">
                 <h2>Monthly Amortization Report</h2>
                 <p>Select a month and year to generate the full 22-column report. Edit &quot;Due&quot; and &quot;Prepaid&quot; inline then click Save.</p>
@@ -281,42 +281,42 @@ const handlePrint = () => {
                 </button>
 
                 {toast && (
-    <div
-        style={{
-            position: "fixed",
-            top: "20px",
-            right: "20px",
-            background: toast.type === "success" ? "#10b981" : "#ef4444",
-            color: "white",
-            padding: "14px 20px",
-            borderRadius: "8px",
-            boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.2)",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            zIndex: 9999,
-            fontSize: "0.95rem",
-            maxWidth: "380px",
-        }}
-    >
-        {toast.type === "success" ? "✅" : "❌"}
-        <span style={{ flex: 1 }}>{toast.message}</span>
-        <button
-            onClick={() => setToast(null)}
-            style={{
-                background: "none",
-                border: "none",
-                color: "white",
-                fontSize: "1.4rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                padding: 0,
-            }}
-        >
-            ×
-        </button>
-    </div>
-)}
+                    <div
+                        style={{
+                            position: "fixed",
+                            top: "20px",
+                            right: "20px",
+                            background: toast.type === "success" ? "#10b981" : "#ef4444",
+                            color: "white",
+                            padding: "14px 20px",
+                            borderRadius: "8px",
+                            boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.2)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            zIndex: 9999,
+                            fontSize: "0.95rem",
+                            maxWidth: "380px",
+                        }}
+                    >
+                        {toast.type === "success" ? "✅" : "❌"}
+                        <span style={{ flex: 1 }}>{toast.message}</span>
+                        <button
+                            onClick={() => setToast(null)}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: "white",
+                                fontSize: "1.4rem",
+                                lineHeight: 1,
+                                cursor: "pointer",
+                                padding: 0,
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                )}
                 {/* Search */}
                 <input
                     type="search"
@@ -381,8 +381,8 @@ const handlePrint = () => {
                                     Due Difference As Of {MONTHS[month - 1]} {year}
                                 </th>
                                 <th style={{ background: "#e0f2fe", color: "#075985" }}>Prepaid Office Rent ✏️</th>
-                                <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th>
-                                <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th>
+                                {/* <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th> */}
+                                {/* <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th> */}
                                 <th>Outstanding Balance as of {endOfMonthLabel(month, year)}</th>
                                 <th>Action</th>
                             </tr>
@@ -485,15 +485,15 @@ const handlePrint = () => {
                                             </td>
 
                                             {/* ✏️ Editable: Additional Expense */}
-                                            <td className="editable-cell" style={{ background: "#fdf2f8" }}>
+                                            {/* <td className="editable-cell" style={{ background: "#fdf2f8" }}>
                                                 <input type="number" step="0.01"
                                                     placeholder="0"
                                                     value={edit.additionalExpense}
                                                     onChange={e => handleEdit(key, "additionalExpense", e.target.value)} />
-                                            </td>
+                                            </td> */}
 
                                             {/* Day of month picker */}
-                                            <td className="editable-cell" style={{ background: "#faf5ff" }}>
+                                            {/* <td className="editable-cell" style={{ background: "#faf5ff" }}>
                                                 <select
                                                     value={edit.entryDay}
                                                     onChange={e => handleEdit(key, "entryDay", e.target.value)}
@@ -503,7 +503,7 @@ const handlePrint = () => {
                                                         <option key={d} value={d}>{d}</option>
                                                     )}
                                                 </select>
-                                            </td>
+                                            </td> */}
 
                                             <td className="number highlight" style={{ color: "#7c3aed" }}>
                                                 {fmt(row.outstandingBalanceEndOfMonth)}

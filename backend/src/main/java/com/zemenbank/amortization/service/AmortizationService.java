@@ -5,10 +5,12 @@ import com.zemenbank.amortization.dto.LeaseContractRequest;
 import com.zemenbank.amortization.entity.AmortizationEntry;
 import com.zemenbank.amortization.entity.LeaseContract;
 import com.zemenbank.amortization.entity.StampDutyContract;
+import com.zemenbank.amortization.enums.ApprovalStatus;
 import com.zemenbank.amortization.repository.AmortizationEntryRepository;
 import com.zemenbank.amortization.repository.LeaseContractRepository;
 import com.zemenbank.amortization.repository.StampDutyContractRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +47,15 @@ public class AmortizationService {
 ) {}
 
     // =========================================================
-    // REGISTRATION
+    //  CONTRACT REGISTRATION & UPDATE
     // =========================================================
+    
+    private String getCurrentUsername() {
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return SecurityContextHolder.getContext().getAuthentication().getName();
+        }
+        return "system";
+    }
 
     @Transactional
     public LeaseContract registerLease(LeaseContractRequest req) {
@@ -82,6 +91,8 @@ public class AmortizationService {
                 .initialOutstandingBalanceYear(req.getInitialOutstandingBalanceYear())
                 .hasStampDuty(req.isHasStampDuty())
                 .previousContractId(req.getPreviousContractId())
+                .approvalStatus(ApprovalStatus.PENDING)
+                .createdBy(getCurrentUsername())
                 .build();
 
         leaseRepo.save(lease);
@@ -113,10 +124,6 @@ public class AmortizationService {
 
         return lease;
     }
-
-    // =========================================================
-    // UPDATE (edit an existing lease contract)
-    // =========================================================
 
     @Transactional
     public LeaseContract updateLease(Long id, LeaseContractRequest req) {
@@ -153,6 +160,12 @@ public class AmortizationService {
                 : BigDecimal.ZERO);
         lease.setInitialOutstandingBalanceMonth(req.getInitialOutstandingBalanceMonth());
         lease.setInitialOutstandingBalanceYear(req.getInitialOutstandingBalanceYear());
+
+        // Maker-Checker
+        lease.setApprovalStatus(ApprovalStatus.PENDING);
+        lease.setCreatedBy(getCurrentUsername());
+        lease.setCheckedBy(null);
+        lease.setCheckerComment(null);
 
         // Stamp duty: update existing or create new
         if (req.isHasStampDuty() && req.getStampDuty() != null) {
@@ -191,8 +204,27 @@ public class AmortizationService {
         return leaseRepo.save(lease);
     }
 
+    public LeaseContract approveContract(Long id, String checkerUsername) {
+        LeaseContract lease = leaseRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contract not found"));
+        lease.setApprovalStatus(ApprovalStatus.APPROVED);
+        lease.setCheckedBy(checkerUsername);
+        lease.setCheckerComment(null);
+        return leaseRepo.save(lease);
+    }
+
+    @Transactional
+    public LeaseContract rejectContract(Long id, String checkerUsername, String comment) {
+        LeaseContract lease = leaseRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contract not found"));
+        lease.setApprovalStatus(ApprovalStatus.REJECTED);
+        lease.setCheckedBy(checkerUsername);
+        lease.setCheckerComment(comment);
+        return leaseRepo.save(lease);
+    }
+
     // =========================================================
-    // REPORT GENERATION for a given month/year
+    //  REPORT GENERATION for a given month/year
     // =========================================================
 
     @Transactional
@@ -282,6 +314,11 @@ LocalDate reportStart = LocalDate.of(year, month, 1);
         }
 
         for (LeaseContract lease : allLeases) {
+            // ── Skip unapproved contracts ─────────────────────────────────────────────
+            if (lease.getApprovalStatus() != ApprovalStatus.APPROVED) {
+                continue;
+            }
+
             // ── Skip contracts superseded by a newer period ───────────────────────
             if (supersededIds.contains(lease.getId()))
                 continue;
