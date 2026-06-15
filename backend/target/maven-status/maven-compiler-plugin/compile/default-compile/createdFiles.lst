@@ -22,7 +22,6 @@ com\zemenbank\amortization\repository\StampDutyContractRepository.class
 com\zemenbank\amortization\service\AmortizationService$InMemoryEntryCache.class
 com\zemenbank\amortization\config\JwtUtil.class
 com\zemenbank\amortization\controller\AuthController.class
-com\zemenbank\amortization\config\CorsConfig.class
 com\zemenbank\amortization\service\ExcelImportService$1.class
 com\zemenbank\amortization\dto\LeaseContractRequest.class
 com\zemenbank\amortization\dto\BulkUploadResult.class
