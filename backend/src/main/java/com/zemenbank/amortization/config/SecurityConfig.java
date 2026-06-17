@@ -2,6 +2,7 @@ package com.zemenbank.amortization.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -33,13 +34,28 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/leases/**").authenticated()
-                .requestMatchers("/api/amortization/**").authenticated()
-                .requestMatchers("/api/leases/template").hasRole("MAKER")
-                .anyRequest().authenticated() 
-            )
+           .authorizeHttpRequests(auth -> auth
+    .requestMatchers("/api/auth/**").permitAll()
+
+    // MAKER only actions
+    .requestMatchers(HttpMethod.POST, "/api/leases/*").hasRole("MAKER")
+    .requestMatchers(HttpMethod.PUT, "/api/leases/*").hasRole("MAKER")
+    .requestMatchers(HttpMethod.DELETE, "/api/leases/*").hasRole("MAKER")
+
+    // CHECKER actions
+    
+    .requestMatchers(HttpMethod.PUT, "/api/leases/*/approve").hasRole("CHECKER")
+    .requestMatchers(HttpMethod.PUT, "/api/leases/*/reject").hasRole("CHECKER")
+    
+
+    // BOTH can view
+    .requestMatchers(HttpMethod.GET, "/api/leases/**").authenticated()
+
+    // TEMPLATE (you already restricted)
+    .requestMatchers("/api/leases/template").hasRole("MAKER")
+
+    .anyRequest().authenticated()
+)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
