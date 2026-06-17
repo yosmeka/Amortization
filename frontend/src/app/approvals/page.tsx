@@ -33,6 +33,7 @@ function fmt(n: number) {
 }
 
 export default function ApprovalsPage() {
+   
     const [leases, setLeases] = useState<PendingLease[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");

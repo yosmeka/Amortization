@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchLeases, deleteLease } from "@/lib/api";
+import { getUserFromToken } from "@/lib/api";
+
 
 
 interface Lease {
@@ -28,7 +30,13 @@ function fmt(n: number) {
 }
 
 export default function LeasesPage() {
-    
+
+    const [role, setRole] = useState<string | null>(null);
+
+useEffect(() => {
+    const user = getUserFromToken();
+    setRole(user?.role ?? null);
+}, []);
     const [leases, setLeases] = useState<Lease[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -88,6 +96,9 @@ export default function LeasesPage() {
         (_, i) => startPage + i
     );
 
+
+    
+
     return (
         <div>
 
@@ -107,9 +118,11 @@ export default function LeasesPage() {
                 />
 
                 <span style={{ marginLeft: "auto" }}>
+                    {role !== "CHECKER" && (
                     <Link href="/leases/new" className="btn btn-primary btn-sm">
                         + Register New Contract
                     </Link>
+                    )}
                 </span>
             </div>
 
@@ -195,22 +208,26 @@ export default function LeasesPage() {
                                             {l.approvalStatus === "PENDING" && <span style={{ background: "#fef08a", color: "#854d0e", padding: "2px 6px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}>🟡 PENDING</span>}
                                             {l.approvalStatus === "APPROVED" && <span style={{ background: "#bbf7d0", color: "#166534", padding: "2px 6px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}>🟢 APPROVED</span>}
                                             {l.approvalStatus === "REJECTED" && (
-                                                <div style={{display: "flex", flexDirection:"column", gap:"2px"}}>
+                                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                                     <span style={{ background: "#fecaca", color: "#991b1b", padding: "2px 6px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", width: "max-content" }}>🔴 REJECTED</span>
-                                                    <small style={{color: "#dc2626", fontSize:"11px", maxWidth:"150px"}}>{l.checkerComment}</small>
+                                                    <small style={{ color: "#dc2626", fontSize: "11px", maxWidth: "150px" }}>{l.checkerComment}</small>
                                                 </div>
                                             )}
                                         </td>
 
                                         {/* ACTIONS (UNCHANGED) */}
                                         <td style={{ whiteSpace: "nowrap", display: "flex", gap: "0.4rem" }}>
-                                            <Link href={`/leases/${l.id}/edit`} className="btn btn-sm">
-                                                ✏️ Edit
-                                            </Link>
+                                            {role !== "CHECKER" && (
+                                                <>
+                                                    <Link href={`/leases/${l.id}/edit`} className="btn btn-sm">
+                                                        ✏️ Edit
+                                                    </Link>
 
-                                            <Link href={`/leases/new?renewFrom=${l.id}`} className="btn btn-sm">
-                                                🔄 Renew
-                                            </Link>
+                                                    <Link href={`/leases/new?renewFrom=${l.id}`} className="btn btn-sm">
+                                                        🔄 Renew
+                                                    </Link>
+                                                </>
+                                            )}
 
                                             <button
                                                 className="btn btn-danger btn-sm"

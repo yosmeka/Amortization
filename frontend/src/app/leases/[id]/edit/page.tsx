@@ -4,6 +4,8 @@ import { useRouter, useParams } from "next/navigation";
 import { fetchLease, updateLease, LeaseContractRequest } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
+
+
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -80,6 +82,7 @@ function toForm(data: any): LeaseContractRequest {
 }
 
 function EditLeasePageInner() {
+   
     useAuthGuard();
     const router = useRouter();
     const params = useParams();
@@ -126,6 +129,8 @@ function EditLeasePageInner() {
                 <h2>✏️ Edit Lease Contract</h2>
                 <p>Update the fields below. Existing amortization entries are preserved.</p>
             </div>
+
+
 
             {alert && (
                 <div className={`alert alert-${alert.type}`}>
