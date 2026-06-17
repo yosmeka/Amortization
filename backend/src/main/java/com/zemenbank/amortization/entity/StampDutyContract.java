@@ -56,7 +56,7 @@ public class StampDutyContract {
     private BigDecimal stampDutyFullPayment = BigDecimal.ZERO;
 
     // Manually entered outstanding balance as of prior month of contract start
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal initialOutstandingBalance = BigDecimal.ZERO;
 

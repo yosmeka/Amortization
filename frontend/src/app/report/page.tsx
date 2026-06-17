@@ -14,6 +14,11 @@ function fmt(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
     return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+/** 8-decimal formatting for amortization chain (outstanding, prorated rent, due, prepaid). */
+function fmtCalc(n: number | undefined | null) {
+    if (n == null || isNaN(n)) return "—";
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+}
 function fmtDate(s: string | undefined | null) {
     if (!s) return "—";
     const d = new Date(s);
@@ -61,6 +66,7 @@ export default function ReportPage() {
             "Year with Fraction": r.yearWithFraction,
             "Meter Square": r.meterSquare,
             "Price/m² Before VAT": r.meterSquarePriceBeforeVat,
+            "VAT Rate": r.vatRate != null ? (r.vatRate * 100) + "%" : "—",
             "Price/m² After VAT": r.meterSquarePriceAfterVat,
             "Monthly Rent with VAT": r.monthlyRentWithVat,
             "Total Annual Rent": r.totalAnnualRentAmount,
@@ -95,6 +101,7 @@ export default function ReportPage() {
             "Year with Fraction": 0, // Updated to match expected type
             "Meter Square": rows.reduce((sum, r) => sum + (r.meterSquare || 0), 0),
             "Price/m² Before VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceBeforeVat || 0), 0),
+            "VAT Rate": "",
             "Price/m² After VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceAfterVat || 0), 0),
             "Monthly Rent with VAT": rows.reduce((sum, r) => sum + (r.monthlyRentWithVat || 0), 0),
             "Total Annual Rent": rows.reduce((sum, r) => sum + (r.totalAnnualRentAmount || 0), 0),
@@ -365,7 +372,8 @@ export default function ReportPage() {
                                 <th>Year with Fraction</th>
                                 <th>Meter Square</th>
                                 <th>Price/m² Before VAT</th>
-                                <th>Price/m² After VAT (15%)</th>
+                                <th>VAT Rate</th>
+                                <th>Price/m² After VAT</th>
                                 <th>Monthly Rent with VAT</th>
                                 <th>Total Annual Rent</th>
                                 <th>Utility / Service Charge</th>
@@ -421,6 +429,7 @@ export default function ReportPage() {
                                             <td className="number">{row.yearWithFraction}</td>
                                             <td className="number">{fmt(row.meterSquare)}</td>
                                             <td className="number">{fmt(row.meterSquarePriceBeforeVat)}</td>
+                                            <td className="number">{row.vatRate != null ? `${row.vatRate * 100}%` : "—"}</td>
                                             <td className="number">{fmt(row.meterSquarePriceAfterVat)}</td>
                                             <td className="number highlight">{fmt(row.monthlyRentWithVat)}</td>
                                             <td className="number">{fmt(row.totalAnnualRentAmount)}</td>
@@ -428,12 +437,12 @@ export default function ReportPage() {
                                             <td className="number">{fmt(row.fullPayment)}</td>
                                             <td className="number">{fmt(row.totalPaymentPaidToDate)}</td>
                                             <td className="number">{fmt(row.remainingPayment)}</td>
-                                            <td className="number highlight">{fmt(row.outstandingBalancePriorMonth)}</td>
+                                            <td className="number highlight">{fmtCalc(row.outstandingBalancePriorMonth)}</td>
                                             {/* ✏️ Rent Expense — editable override; auto-value shown as placeholder */}
                                             <td className="editable-cell" style={{ background: "#f0fdf4" }}>
                                                 {row.rentExpenseOverridden && <span title="Overridden" style={{ fontSize: "0.7rem", color: "#f59e0b" }}>✏️ </span>}
                                                 <input type="number" step="0.01"
-                                                    placeholder={fmt(row.rentExpenseForMonth) ?? "auto"}
+                                                    placeholder={fmtCalc(row.rentExpenseForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.rentExpense}
                                                     onChange={e => handleEdit(key, "rentExpense", e.target.value)} />
@@ -446,7 +455,7 @@ export default function ReportPage() {
                                             {/* ✏️ Editable: Due for Month */}
                                             <td className="editable-cell" style={{ background: "#fefce8" }}>
                                                 <input type="number" step="0.01"
-                                                    placeholder={fmt(row.dueForMonth) ?? "auto"}
+                                                    placeholder={fmtCalc(row.dueForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.due}
                                                     onChange={e => handleEdit(key, "due", e.target.value)} />
@@ -454,16 +463,16 @@ export default function ReportPage() {
 
                                             {/* Rent Expense − Due for Month (read-only) */}
                                             <td className="number" style={{ background: "#f0fdf4", fontWeight: 600, color: "#065f46" }}>
-                                                {fmt(row.rentMinusDue)}
+                                                {fmtCalc(row.rentMinusDue)}
                                             </td>
                                             {/* Rent Expense As Of */}
                                             <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
-                                                {fmt(row.rentExpenseAsOf)}
+                                                {fmtCalc(row.rentExpenseAsOf)}
                                             </td>
 
                                             {/* Due Difference As Of */}
                                             <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
-                                                {fmt(row.dueDifferenceAsOf)}
+                                                {fmtCalc(row.dueDifferenceAsOf)}
                                             </td>
 
 
@@ -510,7 +519,7 @@ export default function ReportPage() {
                                             </td> */}
 
                                             <td className="number highlight" style={{ color: "#7c3aed" }}>
-                                                {fmt(row.outstandingBalanceEndOfMonth)}
+                                                {fmtCalc(row.outstandingBalanceEndOfMonth)}
                                             </td>
 
                                             <td>
@@ -541,6 +550,7 @@ export default function ReportPage() {
                                 {/* Numeric columns aligned with thead */}
                                 <td className="number">{fmt(rows.reduce((s, r) => s + (r.meterSquare ?? 0), 0))}</td>
                                 <td className="number">{fmt(rows.reduce((s, r) => s + (r.meterSquarePriceBeforeVat ?? 0), 0))}</td>
+                                <td /> {/* VAT Rate */}
                                 <td className="number">{fmt(rows.reduce((s, r) => s + (r.meterSquarePriceAfterVat ?? 0), 0))}</td>
                                 <td className="number" style={{ color: "#93c5fd" }}>{fmt(filteredRows.reduce((s, r) => s + (r.monthlyRentWithVat ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.totalAnnualRentAmount ?? 0), 0))}</td>
@@ -548,14 +558,14 @@ export default function ReportPage() {
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.fullPayment ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.totalPaymentPaidToDate ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.remainingPayment ?? 0), 0))}</td>
-                                <td className="number" style={{ color: "#93c5fd" }}>{fmt(filteredRows.reduce((s, r) => s + (r.outstandingBalancePriorMonth ?? 0), 0))}</td>
-                                <td className="number" style={{ color: "#6ee7b7" }}>{fmt(filteredRows.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0))}</td>
+                                <td className="number" style={{ color: "#93c5fd" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.outstandingBalancePriorMonth ?? 0), 0))}</td>
+                                <td className="number" style={{ color: "#6ee7b7" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.total ?? 0), 0))}</td>
-                                <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.dueForMonth ?? 0), 0))}</td>
-                                <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.prepaidOfficeRent ?? 0), 0))}</td>
-                                <td className="number" style={{ color: "#f472b6" }}>{fmt(filteredRows.reduce((s, r) => s + (r.additionalExpense ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.dueForMonth ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.prepaidOfficeRent ?? 0), 0))}</td>
+                                <td className="number" style={{ color: "#f472b6" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.additionalExpense ?? 0), 0))}</td>
                                 <td />{/* Day — no total */}
-                                <td className="number" style={{ color: "#c4b5fd" }}>{fmt(filteredRows.reduce((s, r) => s + (r.outstandingBalanceEndOfMonth ?? 0), 0))}</td>
+                                <td className="number" style={{ color: "#c4b5fd" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.outstandingBalanceEndOfMonth ?? 0), 0))}</td>
                                 <td />{/* Action column */}
                             </tr>
                         </tfoot>

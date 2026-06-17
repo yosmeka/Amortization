@@ -88,6 +88,7 @@ export interface AmortizationReportRow {
     yearWithFraction: number;
     meterSquare: number;
     meterSquarePriceBeforeVat: number;
+    vatRate: number;
     meterSquarePriceAfterVat: number;
     monthlyRentWithVat: number;
     totalAnnualRentAmount: number;

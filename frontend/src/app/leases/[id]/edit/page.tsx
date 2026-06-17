@@ -240,6 +240,7 @@ function EditLeasePageInner() {
                         <label>VAT Rate</label>
                         <select value={form.vatRate} onChange={e => set("vatRate", parseFloat(e.target.value))}>
                             <option value={0.15}>15%</option>
+                            <option value={0.10}>10%</option>
                             <option value={0}>0% (No VAT)</option>
                         </select>
                     </div>

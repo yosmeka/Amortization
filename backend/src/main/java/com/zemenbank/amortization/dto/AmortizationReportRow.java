@@ -39,6 +39,7 @@ public class AmortizationReportRow {
 
     // === Column 11: Meter Square Price After VAT ===
     private BigDecimal meterSquarePriceAfterVat;
+    private BigDecimal vatRate;
 
     // === Column 12: Monthly Rent Payment with VAT ===
     private BigDecimal monthlyRentWithVat;

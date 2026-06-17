@@ -4,14 +4,14 @@
    Zemen Bank – Amortization System Global Styles
 ─────────────────────────────────────────────── */
 :root {
-  --brand-primary: #1a3c5e;
-  --brand-secondary: #2563eb;
-  --brand-accent: #f59e0b;
-  --bg-base: #f0f4f8;
+  --brand-primary: #e60000;
+  --brand-secondary: #cc0000;
+  --brand-accent: #ff4d4d;
+  --bg-base: #f9fafb;
   --bg-card: #ffffff;
-  --text-primary: #1e293b;
-  --text-muted: #64748b;
-  --border: #cbd5e1;
+  --text-primary: #111827;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
   --success: #16a34a;
   --danger: #dc2626;
 }

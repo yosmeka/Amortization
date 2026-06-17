@@ -68,7 +68,7 @@ public class LeaseContract {
     private BigDecimal utilityPayment = BigDecimal.ZERO;
 
     // === Outstanding Balance at prior month of contract start (manually entered on first registration) ===
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal initialOutstandingBalance = BigDecimal.ZERO;
 

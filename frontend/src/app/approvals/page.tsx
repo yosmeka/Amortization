@@ -314,7 +314,7 @@ export default function ApprovalsPage() {
                 {leases.map(l => {
                     const priceAfterVat =
                         l.meterSquarePriceBeforeVat *
-                        (1 + (l.vatRate || 0.15));
+                        (1 + (l.vatRate ?? 0.15));
 
                     const monthly =
                         l.meterSquare * priceAfterVat;
@@ -535,7 +535,7 @@ export default function ApprovalsPage() {
                                         {fmt(
                                             viewingLease.meterSquare *
                                                 viewingLease.meterSquarePriceBeforeVat *
-                                                (1 + (viewingLease.vatRate || 0.15))
+                                                (1 + (viewingLease.vatRate ?? 0.15))
                                         )}
                                     </div>
                                 </div>

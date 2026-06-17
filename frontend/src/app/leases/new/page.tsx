@@ -280,6 +280,7 @@ function NewLeasePageInner() {
                         <select className="form-control" value={form.vatRate}
                             onChange={e => set("vatRate", parseFloat(e.target.value))}>
                             <option value={0.15}>15%</option>
+                            <option value={0.10}>10%</option>
                             <option value={0.07}>7%</option>
                         </select>
                     </div>
@@ -374,10 +375,11 @@ function NewLeasePageInner() {
                                     onChange={e => setSD("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                             </div>
                             <div className="form-group">
-                                <label>VAT Rate</label>
+                                <label>Stamp Duty VAT Rate</label>
                                 <select className="form-control" value={form.stampDuty?.vatRate}
                                     onChange={e => setSD("vatRate", parseFloat(e.target.value))}>
                                     <option value={0.15}>15%</option>
+                                    <option value={0.10}>10%</option>
                                     <option value={0.07}>7%</option>
                                 </select>
                             </div>

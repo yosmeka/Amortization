@@ -171,7 +171,7 @@ export default function LeasesPage() {
 
                             {paginatedData.map((l, i) => {
                                 const priceAfterVat =
-                                    l.meterSquarePriceBeforeVat * (1 + l.vatRate);
+                                    l.meterSquarePriceBeforeVat * (1 + (l.vatRate ?? 0.15));
 
                                 const monthly = l.meterSquare * priceAfterVat;
 
