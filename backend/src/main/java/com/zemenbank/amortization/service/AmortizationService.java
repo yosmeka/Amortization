@@ -38,8 +38,7 @@ public class AmortizationService {
     private static final BigDecimal DAYS_IN_YEAR = new BigDecimal("365");
     private static final int SCALE = 8;
     private static final int MONEY_SCALE = 2;
-    private static final RoundingMode RM = RoundingMode.HALF_UP;
-    /** Banker's rounding for currency — 3000.005 → 3000.00, not 3000.01 */
+    private static final RoundingMode RM = RoundingMode.HALF_EVEN;
     private static final RoundingMode MONEY_RM = RoundingMode.HALF_EVEN;
     private static final BigDecimal HALF_CENT = new BigDecimal("0.005");
 
@@ -558,11 +557,7 @@ public class AmortizationService {
             utilityPayment = lease.getUtilityPayment();
 
             priceAfterVat = calcPriceAfterVat(priceBeforeVat, vatRate);
-            // Single-step gross rent avoids double-rounding (e.g. 19,130.43 × 1.15 → 22,000.00)
             monthlyRent = calcGrossRent(meterSqr, priceBeforeVat, vatRate);
-            if (meterSqr.compareTo(BigDecimal.ZERO) > 0) {
-                priceAfterVat = monthlyRent.divide(meterSqr, MONEY_SCALE, RoundingMode.HALF_UP);
-            }
             annualRent = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(MONEY_SCALE, MONEY_RM);
             fullPayment = annualRent.multiply(totalYears).setScale(MONEY_SCALE, MONEY_RM);
 
@@ -600,17 +595,9 @@ public class AmortizationService {
         // ---- Column 18: Rent Expense for the month ----
         boolean firstMonth = isFirstMonth(lease.getContractStartDate(), month, year);
 
-        // Monthly rent at calc precision (8dp) — used for proration / outstanding chain
-        BigDecimal monthlyRentCalc;
-        if (!isStampDuty) {
-            monthlyRentCalc = roundGrossFromNetAtCalcScale(
-                    meterSqr.multiply(priceBeforeVat), lease.getVatRate());
-        } else {
-            BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12)).setScale(6, RM);
-            monthlyRentCalc = divisor.compareTo(BigDecimal.ZERO) > 0
-                    ? roundCalc(fullPayment.divide(divisor, SCALE, RM))
-                    : BigDecimal.ZERO;
-        }
+        // ── USE EXACT 2-DECIMAL TABULAR RENT FOR ALL INTERNAL COMPUTATION ──
+        // (We map the exact 2dp value to 8dp for downstream compatibility)
+        BigDecimal monthlyRentCalc = monthlyRent.setScale(SCALE, RM);
 
         // ── Rate-switching for renewed contracts (Rule 2) ─────────────────────────
         BigDecimal effectiveMonthlyRent = monthlyRentCalc;
@@ -795,15 +782,9 @@ public class AmortizationService {
                 .divide(BigDecimal.valueOf(daysInMonth), SCALE, RM);
     }
 
-    /** Same VAT gross rules as {@link #roundGrossFromNet} but at calc precision (8dp). */
+    /** Standard mathematical rounding to 8dp for VAT gross at calculation precision */
     private BigDecimal roundGrossFromNetAtCalcScale(BigDecimal net, BigDecimal vatRate) {
-        BigDecimal grossExact = net.multiply(BigDecimal.ONE.add(vatRate));
-        BigDecimal truncated = grossExact.setScale(SCALE, RoundingMode.DOWN);
-        if (grossExact.subtract(truncated).compareTo(HALF_CENT) == 0) {
-            return grossExact.setScale(SCALE, MONEY_RM);
-        }
-        BigDecimal vatAmount = net.multiply(vatRate).setScale(SCALE, RoundingMode.CEILING);
-        return roundCalc(net.add(vatAmount));
+        return net.multiply(BigDecimal.ONE.add(vatRate)).setScale(SCALE, RoundingMode.HALF_UP);
     }
 
     /**
@@ -1459,51 +1440,63 @@ public class AmortizationService {
 
     /**
      * Monthly rent for outstandingPrior resolution and saveEntry.
-     * For stamp duty: fullPayment / (totalYears * 12). For office: meterSqr *
-     * priceAfterVat.
+     * Maps the exact 2-decimal tabular value to 8dp for consistent math without drift.
      */
     private BigDecimal calcMonthlyRent(StampDutyContract sd, LeaseContract lease) {
         if (sd != null) {
-            // Stamp duty: fullPayment / (days-based totalYears * 12)
             BigDecimal fullPayment = sd.getStampDutyFullPayment() != null
                     ? sd.getStampDutyFullPayment()
                     : BigDecimal.ZERO;
             BigDecimal totalYears = calcTotalNumberOfYears(
                     lease.getContractStartDate(), lease.getContractEndDate());
             BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12)).setScale(6, RM);
-            return divisor.compareTo(BigDecimal.ZERO) > 0
-                    ? roundCalc(fullPayment.divide(divisor, SCALE, RM))
+            BigDecimal monthlyRent = divisor.compareTo(BigDecimal.ZERO) > 0
+                    ? fullPayment.divide(divisor, MONEY_SCALE, RoundingMode.HALF_EVEN)
                     : BigDecimal.ZERO;
+            return monthlyRent.setScale(SCALE, RM);
         }
-        return roundGrossFromNetAtCalcScale(
-                lease.getMeterSquare().multiply(lease.getMeterSquarePriceBeforeVat()),
-                lease.getVatRate());
+        return calcOfficeMonthlyRent(lease).setScale(SCALE, RM);
     }
 
     private BigDecimal calcPriceAfterVat(BigDecimal priceBeforeVat, BigDecimal vatRate) {
         return roundGrossFromNet(priceBeforeVat, vatRate);
     }
 
-    /** Gross rent = meterSquare × priceBefore × (1 + VAT), rounded once at 2dp. */
+    /** Gross rent = rounded(priceBefore × (1 + VAT)) × meterSquare. */
     private BigDecimal calcGrossRent(BigDecimal meterSquare, BigDecimal priceBeforeVat, BigDecimal vatRate) {
-        return roundGrossFromNet(meterSquare.multiply(priceBeforeVat), vatRate);
+        BigDecimal priceAfterVat = roundGrossFromNet(priceBeforeVat, vatRate);
+        return priceAfterVat.multiply(meterSquare).setScale(MONEY_SCALE, RoundingMode.HALF_EVEN);
     }
 
     /**
-     * Currency rounding for VAT-inclusive amounts.
-     * <ul>
-     *   <li>Exact half-cent (.005 remainder) → banker's round (2608.70 × 1.15 → 3000.00)</li>
-     *   <li>Otherwise → net + VAT rounded up (19130.43 × 1.15 → 22000.00)</li>
-     * </ul>
+     * Zemen Bank exact pricing algorithm.
+     * Recovers true integer targets (e.g. 22000.00, 7000.00, 3000.00) from
+     * pre-VAT prices that encountered string rounding drift (e.g. 19130.43).
+     *
+     * We divide the nearest whole numbered gross by VAT to see if it cleanly 
+     * mathematically proves it was the parent derived source.
      */
     private BigDecimal roundGrossFromNet(BigDecimal net, BigDecimal vatRate) {
-        BigDecimal grossExact = net.multiply(BigDecimal.ONE.add(vatRate));
-        BigDecimal truncated = grossExact.setScale(MONEY_SCALE, RoundingMode.DOWN);
-        if (grossExact.subtract(truncated).compareTo(HALF_CENT) == 0) {
-            return grossExact.setScale(MONEY_SCALE, MONEY_RM);
+        if (vatRate.compareTo(BigDecimal.ZERO) == 0) {
+            return net.setScale(MONEY_SCALE, RoundingMode.HALF_EVEN);
         }
-        BigDecimal vatAmount = net.multiply(vatRate).setScale(MONEY_SCALE, RoundingMode.CEILING);
-        return net.add(vatAmount).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        
+        BigDecimal onePlusVat = BigDecimal.ONE.add(vatRate);
+        BigDecimal grossExact = net.multiply(onePlusVat);
+        
+        // 1. Un-Drift Validation: Check if the closest exact integer logically maps back to this precise Net
+        BigDecimal rounded0 = grossExact.setScale(0, RoundingMode.HALF_UP);
+        BigDecimal inverseNet = rounded0.divide(onePlusVat, MONEY_SCALE, RoundingMode.HALF_UP);
+        
+        if (inverseNet.compareTo(net) == 0) {
+            // Ensure we aren't heavily warping data; maximum pure drift is 0.006.
+            if (grossExact.subtract(rounded0).abs().compareTo(new BigDecimal("0.01")) < 0) {
+                return rounded0.setScale(MONEY_SCALE);
+            }
+        }
+        
+        // 2. Standard Mathematical Fallback
+        return grossExact.setScale(MONEY_SCALE, RoundingMode.HALF_EVEN);
     }
 
     private BigDecimal calcOfficeMonthlyRent(LeaseContract lease) {
