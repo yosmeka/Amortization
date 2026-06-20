@@ -19,6 +19,7 @@ import com.zemenbank.amortization.enums.Role;
 public class UserDto {
     private Long id;
     private String username;
+    private String email;
     private Role role; // we can use String here to represent the role, or we can use the enum Role if we want to be more strict
-    
+    private boolean enabled;
 }

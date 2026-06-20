@@ -14,10 +14,8 @@ export function useAuthGuard() {
         const role = localStorage.getItem("role");
 
         // Allow auth pages
-        if (
-            pathname === "/login" ||
-            pathname === "/register"
-        ) {
+        // Allow login
+        if (pathname === "/login") {
             setReady(true);
             return;
         }

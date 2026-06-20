@@ -112,7 +112,7 @@ export interface AmortizationReportRow {
     rentMinusDue: number;
     rentExpenseAsOf: number;
     dueDifferenceAsOf: number;
-   
+
 
 
 }
@@ -125,8 +125,9 @@ export interface LoginRequest {
 
 export interface RegisterRequest {
     username: string;
+    email: string;
     password: string;
-    role: "MAKER" | "CHECKER"| "ADMIN";
+    role: "MAKER" | "CHECKER" | "ADMIN";
 }
 
 export interface AuthResponse {
@@ -230,7 +231,7 @@ export async function loginUser(data: LoginRequest): Promise<AuthResponse> {
 export async function registerUser(data: RegisterRequest): Promise<object> {
     const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
 
@@ -308,9 +309,9 @@ export interface PrepaidSuggestionResponse {
 }
 
 export async function fetchPrepaidSuggestion(leaseId: number, month: number, year: number, isStampDuty: boolean): Promise<PrepaidSuggestionResponse> {
-    const params = new URLSearchParams({ 
-        leaseId: String(leaseId), 
-        month: String(month), 
+    const params = new URLSearchParams({
+        leaseId: String(leaseId),
+        month: String(month),
         year: String(year),
         stampDuty: String(isStampDuty)
     });
@@ -349,4 +350,44 @@ export async function saveEntry(
         }),
     });
     return handleResponse<object>(res);
+}
+
+/* ── User Management APIs ── */
+export interface UserResponse {
+    id: number;
+    username: string;
+    email: string;
+    role: "MAKER" | "CHECKER" | "ADMIN";
+    enabled: boolean;
+}
+
+export async function fetchUsers(): Promise<UserResponse[]> {
+    const res = await fetch(`${API_BASE}/users`, { headers: getAuthHeaders() });
+    return handleResponse<UserResponse[]>(res);
+}
+
+export async function updateUser(id: number, data: { email: string; role: string }): Promise<UserResponse> {
+    const res = await fetch(`${API_BASE}/users/${id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    return handleResponse<UserResponse>(res);
+}
+
+export async function updateUserStatus(id: number, enabled: boolean): Promise<UserResponse> {
+    const res = await fetch(`${API_BASE}/users/${id}/status`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ enabled }),
+    });
+    return handleResponse<UserResponse>(res);
+}
+
+export async function deleteUser(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/users/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }

@@ -25,7 +25,7 @@ export default function LoginPage() {
             const role = res.role.toUpperCase();
 
             if (role === "ADMIN") {
-                router.push("/admin");
+                router.push("/register");
             } else if (role === "MAKER") {
                 router.push("/");
             } else if (role === "CHECKER") {

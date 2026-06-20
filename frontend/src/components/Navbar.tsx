@@ -42,7 +42,7 @@ export default function Navbar() {
     };
 
     // ❌ Hide navbar on auth pages
-    if (path === "/login" || path === "/register") {
+    if (path === "/login") {
         return null;
     }
 
@@ -79,6 +79,11 @@ export default function Navbar() {
                 {role === "CHECKER" || role === "ADMIN" ? (
                     <Link href="/approvals" className={path === "/approvals" ? "active" : ""}>
                         🛡️ Pending Approvals
+                    </Link>
+                ) : null}
+                {role === "ADMIN" ? (
+                    <Link href="/register" className={path === "/register" ? "active" : ""}>
+                        👤 Register Users
                     </Link>
                 ) : null}
                 {/* 👤 USER DROPDOWN */}

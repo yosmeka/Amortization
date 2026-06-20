@@ -24,6 +24,7 @@ public class AuthController {
     public UserDto register(@RequestBody RegisterRequest request) {
         return authService.registerUser(
                 request.getUsername(),
+                request.getEmail(),
                 request.getPassword(),
                 request.getRole()
         );

@@ -25,15 +25,19 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @Column(unique = true, nullable = false)
+    private String email;
 
     @Column(nullable = false)
     @JsonIgnore
     private String password;
 
-    //lets make the role to use the enum Role
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 
     public User orElseThrow(Object object) {
         // TODO Auto-generated method stub
