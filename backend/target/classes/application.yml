@@ -6,18 +6,36 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/amortization_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
-    password: Yosef@123
+    password: root@123    # ← change to your MySQL password
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   # ── JPA / Hibernate ──────────────────────────────────────────
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: false
+    show-sql: true
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
 
 server:
   port: 8080
+
+app: 
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
+  jwt:
+    secret: ${JWT_SECRET:6b574c5920ebfc693f3a76b5e0829a081853f956a3cb1e519e3faed1896839d9}
+    expiration-ms: 86400000  # 24 hours
+    cookie-name: amortization_token
+  session:
+    inactivity-timeout-ms: ${SESSION_TIMEOUT_MS:900000}   # Default 15 minutes
+    warning-before-ms: ${SESSION_WARNING_MS:60000}        # Default 1 minute before
+  auth-mode: ${AUTH_MODE:local
+  ldap:
+    url: ${LDAP_URL:ldap://mbdcp02.zemenbank.local:389}
+    starttls: ${LDAP_STARTTLS:false}
+    base-dn: ${LDAP_BASE_DN:dc=zemenbank,dc=local}
+    user-attribute: ${LDAP_USER_ATTRIBUTE:mail}
+    trust-all-certs: ${LDAP_TRUST_ALL_CERTS:true}

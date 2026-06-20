@@ -1,0 +1,21 @@
+# Generic build folders
+build/
+dist/
+out/
+target/
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.class
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

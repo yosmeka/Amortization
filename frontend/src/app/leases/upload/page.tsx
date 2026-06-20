@@ -2,10 +2,13 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { bulkUploadLeases, BulkUploadResult } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { API_BASE } from "@/lib/config";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
+//const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
 
 export default function BulkUploadPage() {
+    useAuthGuard();
     const router = useRouter();
     const fileRef = useRef<HTMLInputElement>(null);
     const [file, setFile] = useState<File | null>(null);
@@ -31,14 +34,40 @@ export default function BulkUploadPage() {
         }
     };
 
-    const handleDownloadTemplate = () => {
-        window.open(`${API_BASE}/leases/template`, "_blank");
+    const handleDownloadTemplate = async () => {
+        try {
+            const token = localStorage.getItem("token"); // Retrieve token from localStorage
+            const response = await fetch(`${API_BASE}/leases/template`, {
+                method: "GET",
+                credentials: "include",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to download the template. Access denied.");
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "Lease_Template.xlsx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            setError("An error occurred while downloading the template.");
+        }
     };
 
     return (
         <div>
             <div className="page-header">
                 <h2>📊 Bulk Upload Lease Contracts</h2>
+                console.log("API Base URL:");
                 <p>Upload an Excel (.xlsx) file to register multiple lease contracts at once.</p>
             </div>
 

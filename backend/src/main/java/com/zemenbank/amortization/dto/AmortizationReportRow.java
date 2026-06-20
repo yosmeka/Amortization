@@ -39,6 +39,7 @@ public class AmortizationReportRow {
 
     // === Column 11: Meter Square Price After VAT ===
     private BigDecimal meterSquarePriceAfterVat;
+    private BigDecimal vatRate;
 
     // === Column 12: Monthly Rent Payment with VAT ===
     private BigDecimal monthlyRentWithVat;
@@ -87,6 +88,9 @@ public class AmortizationReportRow {
 
     // === Whether rent expense was manually overridden ===
     private boolean rentExpenseOverridden;
+
+     private BigDecimal rentExpenseAsOf;
+     private BigDecimal dueDifferenceAsOf;
 
     // === Report period ===
     private int reportMonth;

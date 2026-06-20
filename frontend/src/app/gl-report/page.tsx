@@ -47,6 +47,8 @@ function buildATM(rows: AmortizationReportRow[], month: number, year: number): T
     const totalDue     = office.reduce((s, r) => s + (r.dueForMonth         ?? 0), 0);
     const totalPrepaid = totalExp - totalDue;
 
+
+    
     return {
         title: "ATM Rent Schedule Ticket",
         debit: [{
