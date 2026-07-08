@@ -68,7 +68,7 @@ public class LeaseContract {
     private BigDecimal utilityPayment = BigDecimal.ZERO;
 
     // === Outstanding Balance at prior month of contract start (manually entered on first registration) ===
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal initialOutstandingBalance = BigDecimal.ZERO;
 
@@ -119,4 +119,28 @@ public class LeaseContract {
      * period's last outstandingBalanceEndOfMonth.
      */
     private Long previousContractId;
+
+    // =========================================================
+    //  Maker-Checker Workflow Fields
+    // =========================================================
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private com.zemenbank.amortization.enums.ApprovalStatus approvalStatus = com.zemenbank.amortization.enums.ApprovalStatus.APPROVED; // Defaulting to APPROVED to auto-migrate existing old data so they don't break. New creations will be overridden to PENDING in the service.
+
+    private String createdBy;
+    private String checkedBy;
+    
+    @Column(columnDefinition = "TEXT")
+    private String checkerComment;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "created_at", updatable = false)
+    @org.hibernate.annotations.CreationTimestamp
+    private java.util.Date createdAt;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "updated_at")
+    @org.hibernate.annotations.UpdateTimestamp
+    private java.util.Date updatedAt;
 }

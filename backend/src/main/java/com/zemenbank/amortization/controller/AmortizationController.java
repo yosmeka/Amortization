@@ -3,6 +3,8 @@ package com.zemenbank.amortization.controller;
 import com.zemenbank.amortization.dto.AmortizationReportRow;
 import com.zemenbank.amortization.entity.AmortizationEntry;
 import com.zemenbank.amortization.service.AmortizationService;
+import com.zemenbank.amortization.service.AmortizationService.PrepaidSuggestionResponse;
+
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -60,14 +62,14 @@ public class AmortizationController {
      * Formula: TotalPaymentPaidToDate(rounded) − Σ(dueForMonth + rentMinusDue) of prior months
      */
     @GetMapping("/prepaid-suggestion")
-    public ResponseEntity<java.util.Map<String, Object>> getPrepaidSuggestion(
-            @RequestParam Long leaseId,
-            @RequestParam int month,
-            @RequestParam int year,
-            @RequestParam(required = false, defaultValue = "false") boolean stampDuty) {
-        java.math.BigDecimal suggestion = amortizationService.calculatePrepaidSuggestion(leaseId, stampDuty, month, year);
-        return ResponseEntity.ok(java.util.Map.of("suggestedPrepaid", suggestion));
-    }
+   public AmortizationService.PrepaidSuggestionResponse getPrepaidSuggestion(
+        @RequestParam Long leaseId,
+        @RequestParam int month,
+        @RequestParam int year,
+        @RequestParam(required = false, defaultValue = "false") boolean stampDuty) {
+
+    return amortizationService.calculatePrepaidSuggestion(leaseId, stampDuty, month, year);
+}
 
     @Data
     public static class EntryRequest {

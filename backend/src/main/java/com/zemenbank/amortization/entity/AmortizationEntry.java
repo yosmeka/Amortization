@@ -50,7 +50,7 @@ public class AmortizationEntry {
     private Integer entryDay;
 
     // === Column 17: Outstanding Balance as of prior month ===
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal outstandingBalancePriorMonth = BigDecimal.ZERO;
 
@@ -58,7 +58,7 @@ public class AmortizationEntry {
      * Column 18 – Rent Expense for the month.
      * When rentExpenseOverridden = true, this stored value is used instead of the auto-calculation.
      */
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal rentExpenseForMonth = BigDecimal.ZERO;
 
@@ -67,7 +67,7 @@ public class AmortizationEntry {
     private boolean rentExpenseOverridden = false;
 
     // === Column 20: Due for the month ===
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal dueForMonth = BigDecimal.ZERO;
 
@@ -76,7 +76,7 @@ public class AmortizationEntry {
     private boolean dueForMonthOverridden = false;
 
     // === Column 21: Prepaid Office Rent for the month – manually entered ===
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal prepaidOfficeRent = BigDecimal.ZERO;
 
@@ -84,12 +84,12 @@ public class AmortizationEntry {
      * Additional unscheduled expense for this month (not part of the normal rent schedule).
      * Subtracts from the outstanding balance alongside rent expense.
      */
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal additionalExpense = BigDecimal.ZERO;
 
     // === Column 22: Outstanding Balance end of month ===
-    @Column(precision = 15, scale = 2)
+    @Column(precision = 18, scale = 8)
     @Builder.Default
     private BigDecimal outstandingBalanceEndOfMonth = BigDecimal.ZERO;
 }
