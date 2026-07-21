@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AmortizationReportRow, fetchReport, saveEntry, fetchPrepaidSuggestion } from "@/lib/api";
+import { AmortizationReportRow, fetchReport, saveEntry, fetchPrepaidSuggestion, fetchLeases, assignBoxFileNo } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -47,6 +47,51 @@ export default function ReportPage() {
         type: "success" | "error"
     } | null>(null);
 
+    // Modal state for Box File Assignment
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [allLeases, setAllLeases] = useState<any[]>([]);
+    const [selectedLeases, setSelectedLeases] = useState<number[]>([]);
+    const [boxFileNoToAssign, setBoxFileNoToAssign] = useState("");
+    const [assignSearch, setAssignSearch] = useState("");
+    const [assignCategory, setAssignCategory] = useState("All");
+    const [assignLoading, setAssignLoading] = useState(false);
+
+    const openAssignModal = async () => {
+        setShowAssignModal(true);
+        try {
+            const data = await fetchLeases();
+            setAllLeases(data);
+        } catch {
+            alert("Failed to load leases for assignment.");
+        }
+    };
+
+    const handleAssignBoxFileNo = async () => {
+        if (selectedLeases.length === 0) {
+            alert("Please select at least one contract.");
+            return;
+        }
+        setAssignLoading(true);
+        try {
+            await assignBoxFileNo(selectedLeases, boxFileNoToAssign);
+            setToast({
+                type: "success",
+                message: `Successfully assigned Box File No "${boxFileNoToAssign || "empty"}" to ${selectedLeases.length} contract(s).`
+            });
+            setTimeout(() => setToast(null), 4000);
+            setSelectedLeases([]);
+            setBoxFileNoToAssign("");
+            setShowAssignModal(false);
+            if (rows.length > 0) {
+                await load();
+            }
+        } catch (err: any) {
+            alert(err.message || "Failed to assign Box File No.");
+        } finally {
+            setAssignLoading(false);
+        }
+    };
+
     const exportToExcel = () => {
         if (!rows.length) {
             alert("No data available to export.");
@@ -55,6 +100,7 @@ export default function ReportPage() {
 
         const data = rows.map((r, index) => ({
             "S/No": r.stampDutyRow ? "" : index + 1,
+            "Box File No": r.boxFileNo || "",
             "Category of Rent": r.categoryOfRent,
             "Branch Name": r.branchName,
             "Branch Code": r.branchCode,
@@ -90,6 +136,7 @@ export default function ReportPage() {
         // Add total row
         const totalRow = {
             "S/No": "TOTAL",
+            "Box File No": "",
             "Category of Rent": "",
             "Branch Name": "",
             "Branch Code": "",
@@ -290,6 +337,14 @@ export default function ReportPage() {
                 >
                     {loading ? "⏳ Generating…" : "📊 Generate Report"}
                 </button>
+                <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={openAssignModal}
+                    style={{ whiteSpace: "nowrap", marginLeft: "4px" }}
+                >
+                    📁 Assign Box File No
+                </button>
 
                 {toast && (
                     <div
@@ -361,6 +416,7 @@ export default function ReportPage() {
                         <thead>
                             <tr>
                                 <th>S/No</th>
+                                <th>Box File No</th>
                                 <th>Category of Rent</th>
                                 <th>Branch Name</th>
                                 <th>Branch Code</th>
@@ -410,6 +466,7 @@ export default function ReportPage() {
                                         <tr key={key}
                                             className={`${row.stampDutyRow ? "stamp-duty-row" : ""} ${row.firstMonth ? "first-month-row" : ""}`}>
                                             <td>{sn}</td>
+                                            <td>{row.boxFileNo || "—"}</td>
                                             <td>
                                                 <span className="badge badge-blue" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
                                                     {row.categoryOfRent || "—"}
@@ -541,8 +598,8 @@ export default function ReportPage() {
                                 background: "#1e293b", color: "#f8fafc",
                                 fontWeight: 700, fontSize: "0.82rem",
                             }}>
-                                {/* S/No + Category + Branch Name + Branch Code = 4 cols */}
-                                <td colSpan={4} style={{ textAlign: "right", padding: "0.6rem 0.75rem", letterSpacing: "0.05em" }}>
+                                {/* S/No + Box File No + Category + Branch Name + Branch Code = 5 cols */}
+                                <td colSpan={5} style={{ textAlign: "right", padding: "0.6rem 0.75rem", letterSpacing: "0.05em" }}>
                                     TOTAL
                                 </td>
                                 {/* Owner Name, Contract Start, Contract End, Total Yrs, Paid-to-Date, Year with Fraction = 6 blank cols */}
@@ -582,6 +639,303 @@ export default function ReportPage() {
                 <span style={{ color: "#059669", fontWeight: 600 }}>Green values</span> Rent Expense for the Month
                 <span style={{ color: "#7c3aed", fontWeight: 600 }}>Purple values</span> End-of-Month Outstanding Balance
             </div>
+
+            {/* Modal Dialog for Box File Assignment */}
+            {showAssignModal && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(15, 23, 42, 0.65)",
+                    backdropFilter: "blur(4px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 10000,
+                    padding: "1rem",
+                }}>
+                    <div style={{
+                        background: "white",
+                        borderRadius: "12px",
+                        boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+                        width: "100%",
+                        maxWidth: "800px",
+                        maxHeight: "90vh",
+                        display: "flex",
+                        flexDirection: "column",
+                        border: "1px solid #e2e8f0"
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: "1.25rem 1.5rem",
+                            borderBottom: "1px solid #e2e8f0",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center"
+                        }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: "1.25rem", color: "#0f172a", fontWeight: 700 }}>
+                                    Assign Box File No to Contracts
+                                </h3>
+                                <p style={{ margin: "4px 0 0 0", fontSize: "0.82rem", color: "#64748b" }}>
+                                    Select contracts and set their Box File Number.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => { setShowAssignModal(false); setSelectedLeases([]); }}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#94a3b8",
+                                    fontSize: "1.5rem",
+                                    cursor: "pointer",
+                                    padding: "4px",
+                                    lineHeight: 1,
+                                    transition: "color 0.2s"
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = "#0f172a"}
+                                onMouseLeave={(e) => e.currentTarget.style.color = "#94a3b8"}
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                            
+                            {/* Filter and Assign Control Bar */}
+                            <div style={{
+                                background: "#f8fafc",
+                                padding: "1rem",
+                                borderRadius: "8px",
+                                border: "1px solid #f1f5f9",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "1rem"
+                            }}>
+                                {/* Box File Input & Submit */}
+                                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                                    <div style={{ flex: 1, minWidth: "200px" }}>
+                                        <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "#475569", marginBottom: "6px" }}>
+                                            Box File No to Assign:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Box-10, ZB-098"
+                                            value={boxFileNoToAssign}
+                                            onChange={e => setBoxFileNoToAssign(e.target.value)}
+                                            style={{
+                                                width: "100%",
+                                                padding: "0.5rem 0.75rem",
+                                                borderRadius: "6px",
+                                                border: "1.5px solid #cbd5e1",
+                                                fontSize: "0.88rem"
+                                            }}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleAssignBoxFileNo}
+                                        disabled={assignLoading || selectedLeases.length === 0}
+                                        className="btn btn-primary"
+                                        style={{
+                                            height: "38px",
+                                            padding: "0 1.25rem",
+                                            fontSize: "0.88rem",
+                                            fontWeight: 600,
+                                            whiteSpace: "nowrap"
+                                        }}
+                                    >
+                                        {assignLoading ? "⏳ Assigning..." : `Apply to ${selectedLeases.length} Selected`}
+                                    </button>
+                                </div>
+
+                                {/* Category Tabs */}
+                                <div>
+                                    <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#475569", display: "block", marginBottom: "8px" }}>
+                                        Filter by Category of Rent:
+                                    </span>
+                                    <div style={{ display: "flex", gap: "6px" }}>
+                                        {["All", "ATM", "Outline", "City"].map(cat => {
+                                            const isActive = assignCategory === cat;
+                                            return (
+                                                <button
+                                                    key={cat}
+                                                    type="button"
+                                                    onClick={() => setAssignCategory(cat)}
+                                                    style={{
+                                                        padding: "6px 12px",
+                                                        borderRadius: "20px",
+                                                        fontSize: "0.82rem",
+                                                        fontWeight: 600,
+                                                        cursor: "pointer",
+                                                        border: "1px solid",
+                                                        borderColor: isActive ? "#3b82f6" : "#cbd5e1",
+                                                        background: isActive ? "#3b82f6" : "white",
+                                                        color: isActive ? "white" : "#475569",
+                                                        transition: "all 0.2s"
+                                                    }}
+                                                >
+                                                    {cat === "All" ? "All Categories" : cat}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Search Bar */}
+                                <div>
+                                    <input
+                                        type="search"
+                                        placeholder="🔍 Search branch code, name, or owner..."
+                                        value={assignSearch}
+                                        onChange={e => setAssignSearch(e.target.value)}
+                                        style={{
+                                            width: "100%",
+                                            padding: "0.5rem 0.75rem",
+                                            borderRadius: "6px",
+                                            border: "1.5px solid #cbd5e1",
+                                            fontSize: "0.88rem"
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Contract List Table */}
+                            <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden", flex: 1, maxHeight: "350px", overflowY: "auto" }}>
+                                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                                    <thead style={{ background: "#f8fafc", position: "sticky", top: 0, zIndex: 1, borderBottom: "1px solid #e2e8f0" }}>
+                                        <tr>
+                                            <th style={{ width: "50px", padding: "10px 12px", textAlign: "left" }}>
+                                                <input
+                                                    type="checkbox"
+                                                    onChange={e => {
+                                                        const filteredList = allLeases.filter(l => {
+                                                            const matchesSearch = 
+                                                                (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                            const matchesCat = 
+                                                                assignCategory === "All" ||
+                                                                (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
+                                                            return matchesSearch && matchesCat;
+                                                        });
+                                                        if (e.target.checked) {
+                                                            setSelectedLeases(filteredList.map(l => l.id));
+                                                        } else {
+                                                            setSelectedLeases([]);
+                                                        }
+                                                    }}
+                                                    checked={
+                                                        allLeases.length > 0 && 
+                                                        allLeases.filter(l => {
+                                                            const matchesSearch = 
+                                                                (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                            const matchesCat = 
+                                                                assignCategory === "All" ||
+                                                                (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
+                                                            return matchesSearch && matchesCat;
+                                                        }).every(l => selectedLeases.includes(l.id))
+                                                    }
+                                                />
+                                            </th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Branch</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Code</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Owner</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Category</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Box File No</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {allLeases
+                                            .filter(l => {
+                                                const matchesSearch = 
+                                                    (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                    (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                    (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                const matchesCat = 
+                                                    assignCategory === "All" ||
+                                                    (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
+                                                return matchesSearch && matchesCat;
+                                            })
+                                            .map(l => {
+                                                const isChecked = selectedLeases.includes(l.id);
+                                                return (
+                                                    <tr key={l.id} style={{ borderBottom: "1px solid #f1f5f9", background: isChecked ? "#f0f9ff" : "white" }}>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={e => {
+                                                                    if (e.target.checked) {
+                                                                        setSelectedLeases(prev => [...prev, l.id]);
+                                                                    } else {
+                                                                        setSelectedLeases(prev => prev.filter(id => id !== l.id));
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </td>
+                                                        <td style={{ padding: "10px 12px", fontWeight: 500, color: "#0f172a" }}>{l.branchName}</td>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            <span className="badge badge-blue">{l.branchCode}</span>
+                                                        </td>
+                                                        <td style={{ padding: "10px 12px", color: "#334155" }}>{l.ownerName}</td>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            <span className="badge badge-blue" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
+                                                                {l.categoryOfRent || "—"}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#4f46e5" }}>{l.boxFileNo || "—"}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        {allLeases.filter(l => {
+                                            const matchesSearch = 
+                                                (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                            const matchesCat = 
+                                                assignCategory === "All" ||
+                                                (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
+                                            return matchesSearch && matchesCat;
+                                        }).length === 0 && (
+                                            <tr>
+                                                <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
+                                                    No contracts found.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div style={{
+                            padding: "1rem 1.5rem",
+                            borderTop: "1px solid #e2e8f0",
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: "0.75rem",
+                            background: "#f8fafc",
+                            borderBottomLeftRadius: "12px",
+                            borderBottomRightRadius: "12px"
+                        }}>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => { setShowAssignModal(false); setSelectedLeases([]); }}
+                                style={{ fontSize: "0.88rem", fontWeight: 600 }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

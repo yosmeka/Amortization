@@ -116,6 +116,13 @@ public class LeaseContractController {
         }
     }
 
+    /** Bulk assign box file number to selected lease contracts */
+    @PutMapping("/assign-box-file-no")
+    public ResponseEntity<Void> assignBoxFileNo(@RequestBody com.zemenbank.amortization.dto.BoxFileNoAssignmentRequest request) {
+        amortizationService.assignBoxFileNo(request.getLeaseContractIds(), request.getBoxFileNo());
+        return ResponseEntity.ok().build();
+    }
+
     /** Delete a lease contract */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLease(@PathVariable Long id) {

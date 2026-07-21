@@ -20,6 +20,7 @@ public class RenewalPrefillDto {
     private String branchCode;
     private String region;
     private String categoryOfRent;
+    private String boxFileNo;
 
     // === Lessor info ===
     private String ownerName;

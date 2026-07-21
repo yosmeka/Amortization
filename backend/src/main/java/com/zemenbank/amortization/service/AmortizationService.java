@@ -74,6 +74,7 @@ public class AmortizationService {
                 .ownerName(req.getOwnerName())
                 .region(req.getRegion())
                 .categoryOfRent(req.getCategoryOfRent())
+                .boxFileNo(req.getBoxFileNo())
                 .lessorName1(req.getLessorName1())
                 .lessorName2(req.getLessorName2())
                 .lessorName3(req.getLessorName3())
@@ -145,6 +146,7 @@ public class AmortizationService {
         lease.setOwnerName(req.getOwnerName());
         lease.setRegion(req.getRegion());
         lease.setCategoryOfRent(req.getCategoryOfRent());
+        lease.setBoxFileNo(req.getBoxFileNo());
         lease.setLessorName1(req.getLessorName1());
         lease.setLessorName2(req.getLessorName2());
         lease.setLessorName3(req.getLessorName3());
@@ -230,6 +232,16 @@ public class AmortizationService {
         lease.setCheckedBy(checkerUsername);
         lease.setCheckerComment(comment);
         return leaseRepo.save(lease);
+    }
+
+    @Transactional
+    public void assignBoxFileNo(List<Long> ids, String boxFileNo) {
+        if (ids == null || ids.isEmpty()) return;
+        List<LeaseContract> leases = leaseRepo.findAllById(ids);
+        for (LeaseContract lease : leases) {
+            lease.setBoxFileNo(boxFileNo);
+        }
+        leaseRepo.saveAll(leases);
     }
 
     // =========================================================
@@ -686,7 +698,7 @@ public class AmortizationService {
         row.setBranchCode(lease.getBranchCode());
         row.setOwnerName(lease.getOwnerName());
         row.setCategoryOfRent(lease.getCategoryOfRent());
-
+        row.setBoxFileNo(lease.getBoxFileNo());
         row.setContractStartDate(lease.getContractStartDate());
         row.setContractEndDate(lease.getContractEndDate());
         row.setTotalNumberOfYears(totalYears);
@@ -1565,6 +1577,7 @@ public class AmortizationService {
                 .branchCode(lease.getBranchCode())
                 .region(lease.getRegion())
                 .categoryOfRent(lease.getCategoryOfRent())
+                .boxFileNo(lease.getBoxFileNo())
                 .ownerName(lease.getOwnerName())
                 .lessorName1(lease.getLessorName1())
                 .lessorName2(lease.getLessorName2())

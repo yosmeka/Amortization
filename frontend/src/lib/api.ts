@@ -31,6 +31,7 @@ export interface LeaseContractRequest {
     branchCode: string;
     region?: string;
     categoryOfRent?: string;
+    boxFileNo?: string;
     lessorName1?: string;
     lessorName2?: string;
     lessorName3?: string;
@@ -77,6 +78,7 @@ export interface AmortizationReportRow {
     leaseContractId: number;
     stampDutyRow: boolean;
     branchName: string;
+    boxFileNo?: string;
 
     branchCode: string;
     ownerName: string;
@@ -244,6 +246,7 @@ export interface RenewalPrefill {
     branchCode: string;
     region?: string;
     categoryOfRent?: string;
+    boxFileNo?: string;
     ownerName: string;
     lessorName1?: string;
     lessorName2?: string;
@@ -391,3 +394,16 @@ export async function deleteUser(id: number): Promise<void> {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
+
+export async function assignBoxFileNo(leaseContractIds: number[], boxFileNo: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/leases/assign-box-file-no`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ leaseContractIds, boxFileNo }),
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+    }
+}
+

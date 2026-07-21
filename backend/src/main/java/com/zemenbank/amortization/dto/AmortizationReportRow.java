@@ -18,6 +18,7 @@ public class AmortizationReportRow {
     private String branchCode;
     private String ownerName;
     private String categoryOfRent;   // ATM / Branch Office / Head Office / etc.
+    private String boxFileNo;
 
 
     // === Column 4-5 ===

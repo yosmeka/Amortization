@@ -26,6 +26,9 @@ public class LeaseContract {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "box_file_no")
+    private String boxFileNo;
+
     // === Column 1 – Branch Name ===
     @Column(nullable = false)
     private String branchName;

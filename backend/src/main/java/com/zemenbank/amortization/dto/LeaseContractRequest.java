@@ -18,6 +18,7 @@ public class LeaseContractRequest {
     private String branchCode;
     private String region;
     private String categoryOfRent;
+    private String boxFileNo;
 
     // Lessor info
     private String lessorName1;
