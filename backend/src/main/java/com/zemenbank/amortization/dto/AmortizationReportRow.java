@@ -92,6 +92,7 @@ public class AmortizationReportRow {
 
      private BigDecimal rentExpenseAsOf;
      private BigDecimal dueDifferenceAsOf;
+     private BigDecimal dueAsOf;
 
     // === Report period ===
     private int reportMonth;

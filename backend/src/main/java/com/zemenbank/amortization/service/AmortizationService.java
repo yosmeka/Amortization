@@ -442,6 +442,8 @@ public class AmortizationService {
                     computeCumulativeRentExpenseAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
             officeRow.setDueDifferenceAsOf(
                     computeDueDifferenceAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
+            officeRow.setDueAsOf(
+                    computeCumulativeDueAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
             rows.add(officeRow);
 
             // --- Stamp duty row (if applicable) ---
@@ -506,6 +508,8 @@ public class AmortizationService {
                         computeCumulativeRentExpenseAsOf(lease, sd, sdRow, month, year, rowCache, entryCache));
                 sdRow.setDueDifferenceAsOf(
                         computeDueDifferenceAsOf(lease, sd, sdRow, month, year, rowCache, entryCache));
+                sdRow.setDueAsOf(
+                        computeCumulativeDueAsOf(lease, sd, sdRow, month, year, rowCache, entryCache));
                 rows.add(sdRow);
 
                 // Total = officeRentExpense + stampDutyRentExpense (on SD row only)
@@ -934,21 +938,26 @@ public class AmortizationService {
             int month, int year, InMemoryEntryCache cache) {
         LocalDate contractStart = lease.getContractStartDate();
 
-        // ── Determine the registered anchor month/year and initial balance ──
-        int initMonth = isStampDuty && sd.getInitialOutstandingBalanceMonth() != null
-                ? sd.getInitialOutstandingBalanceMonth()
-                : (lease.getInitialOutstandingBalanceMonth() != null
-                        ? lease.getInitialOutstandingBalanceMonth()
-                        : contractStart.getMonthValue());
-        int initYear = isStampDuty && sd.getInitialOutstandingBalanceYear() != null
-                ? sd.getInitialOutstandingBalanceYear()
-                : (lease.getInitialOutstandingBalanceYear() != null
-                        ? lease.getInitialOutstandingBalanceYear()
-                        : contractStart.getYear());
         BigDecimal initBalance = isStampDuty
                 ? (sd.getInitialOutstandingBalance() != null ? sd.getInitialOutstandingBalance() : BigDecimal.ZERO)
                 : (lease.getInitialOutstandingBalance() != null ? lease.getInitialOutstandingBalance()
                         : BigDecimal.ZERO);
+
+        int initMonth = contractStart.getMonthValue();
+        int initYear = contractStart.getYear();
+
+        if (initBalance.compareTo(BigDecimal.ZERO) != 0) {
+            initMonth = isStampDuty && sd.getInitialOutstandingBalanceMonth() != null
+                    ? sd.getInitialOutstandingBalanceMonth()
+                    : (lease.getInitialOutstandingBalanceMonth() != null
+                            ? lease.getInitialOutstandingBalanceMonth()
+                            : contractStart.getMonthValue());
+            initYear = isStampDuty && sd.getInitialOutstandingBalanceYear() != null
+                    ? sd.getInitialOutstandingBalanceYear()
+                    : (lease.getInitialOutstandingBalanceYear() != null
+                            ? lease.getInitialOutstandingBalanceYear()
+                            : contractStart.getYear());
+        }
 
         // ── 1. This IS the anchor month → return the registered initial balance ──
         if (year == initYear && month == initMonth) {
@@ -1264,6 +1273,36 @@ public class AmortizationService {
     }
 
     /**
+     * Cumulative "Due As Of [Month]":
+     * Simple running sum of dueForMonth from contract start through the target month.
+     * No prepaid switching logic — just add up every month's due amount.
+     */
+    private BigDecimal computeCumulativeDueAsOf(
+            LeaseContract lease, StampDutyContract sd,
+            AmortizationReportRow currentRow,
+            int targetMonth, int targetYear,
+            Map<String, AmortizationReportRow> rowCache, InMemoryEntryCache entryCache) {
+
+        BigDecimal cum = BigDecimal.ZERO;
+        LocalDate contractStart = lease.getContractStartDate();
+        YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
+        YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
+
+        while (!ym.isAfter(targetYm)) {
+            BigDecimal due;
+            if (ym.equals(targetYm)) {
+                due = safe(currentRow.getDueForMonth());
+            } else {
+                AmortizationReportRow row = buildRowForAnyMonth(lease, sd, ym.getMonthValue(), ym.getYear(), rowCache, entryCache);
+                due = safe(row.getDueForMonth());
+            }
+            cum = cum.add(due);
+            ym = ym.plusMonths(1);
+        }
+        return cum.setScale(SCALE, RM);
+    }
+
+    /**
      * Helper: builds the row for ANY month, automatically using the correct
      * contract
      * (previous contract if the month is before the current lease start date).
@@ -1537,18 +1576,15 @@ public class AmortizationService {
 
         // ── Determine the last month of this contract's amortization period ──
         // We want the balance at the END of the last amortization month.
-        // paymentPaidToDate (e.g. Mar 20 2028) means the contract covers up to that
-        // date.
-        // The LAST full month with a balance is the month OF paidToDate.
-        // BUT the outstanding we carry to the new contract is the balance PRIOR to
-        // the new contract's first month (e.g. February 2028 if new starts Mar 21
-        // 2028).
-        // Therefore we use the month BEFORE paidToDate as the snapshot month.
+        // paymentPaidToDate (e.g. Mar 20 2028) means the contract covers up to that date.
+        // The new contract will start on the day AFTER paidToDate (e.g. Mar 21 2028).
+        // The first month of the new contract is the month of (paidToDate + 1 day).
+        // The outstanding balance we carry over is the end-balance of the month BEFORE that first month.
         LocalDate officeEnd = lease.getPaymentPaidToDate() != null
                 ? lease.getPaymentPaidToDate()
                 : lease.getContractEndDate();
-        // Prior month = month before paidToDate
-        java.time.YearMonth officeSnap = java.time.YearMonth.from(officeEnd).minusMonths(1);
+        
+        java.time.YearMonth officeSnap = java.time.YearMonth.from(officeEnd.plusDays(1)).minusMonths(1);
         int lastMonth = officeSnap.getMonthValue();
         int lastYear = officeSnap.getYear();
 
@@ -1563,8 +1599,7 @@ public class AmortizationService {
         if (lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
             StampDutyContract sd = lease.getStampDutyContract();
             LocalDate sdPaid = sd.getPaymentPaidToDate() != null ? sd.getPaymentPaidToDate() : officeEnd;
-            // Same logic: use the month before paidToDate
-            java.time.YearMonth sdSnap = java.time.YearMonth.from(sdPaid).minusMonths(1);
+            java.time.YearMonth sdSnap = java.time.YearMonth.from(sdPaid.plusDays(1)).minusMonths(1);
             sdEndMonth = sdSnap.getMonthValue();
             sdEndYear = sdSnap.getYear();
             AmortizationReportRow sdLastRow = buildRow(lease, sd, sdEndMonth, sdEndYear);
@@ -1597,6 +1632,18 @@ public class AmortizationService {
                 .sdPreviousEndingOutstandingBalance(sdEndingBalance)
                 .sdPreviousEndingMonth(sdEndMonth)
                 .sdPreviousEndingYear(sdEndYear)
+                .contractEndDate(lease.getContractEndDate())
+                .paymentPaidToDate(lease.getPaymentPaidToDate())
+                .meterSquare(lease.getMeterSquare())
+                .meterSquarePriceBeforeVat(lease.getMeterSquarePriceBeforeVat())
+                .vatRate(lease.getVatRate())
+                .utilityPayment(lease.getUtilityPayment())
+                .sdMeterSquare(lease.isHasStampDuty() && lease.getStampDutyContract() != null ? lease.getStampDutyContract().getMeterSquare() : BigDecimal.ZERO)
+                .sdMeterSquarePriceBeforeVat(lease.isHasStampDuty() && lease.getStampDutyContract() != null ? lease.getStampDutyContract().getMeterSquarePriceBeforeVat() : BigDecimal.ZERO)
+                .sdVatRate(lease.isHasStampDuty() && lease.getStampDutyContract() != null ? lease.getStampDutyContract().getVatRate() : BigDecimal.ZERO)
+                .sdUtilityPayment(lease.isHasStampDuty() && lease.getStampDutyContract() != null ? lease.getStampDutyContract().getUtilityPayment() : BigDecimal.ZERO)
+                .sdStampDutyFullPayment(lease.isHasStampDuty() && lease.getStampDutyContract() != null ? lease.getStampDutyContract().getStampDutyFullPayment() : BigDecimal.ZERO)
+                .sdPaymentPaidToDate(lease.isHasStampDuty() && lease.getStampDutyContract() != null ? lease.getStampDutyContract().getPaymentPaidToDate() : null)
                 .build();
     }
 

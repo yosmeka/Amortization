@@ -11,6 +11,7 @@ interface Lease {
     ownerName: string;
     contractStartDate: string;
     contractEndDate: string;
+    paymentPaidToDate?: string;
     hasStampDuty: boolean;
     meterSquare: number;
     meterSquarePriceBeforeVat: number;
@@ -208,9 +209,19 @@ export default function LeasesPage() {
                                                 ✏️ Edit
                                             </Link>
 
-                                            <Link href={`/leases/new?renewFrom=${l.id}`} className="btn btn-sm">
-                                                🔄 Renew
-                                            </Link>
+                                            {/* Renew: only when paymentPaidToDate equals contractEndDate */}
+                                            {l.paymentPaidToDate === l.contractEndDate && (
+                                                <Link href={`/leases/new?renewFrom=${l.id}`} className="btn btn-sm">
+                                                    🔄 Renew
+                                                </Link>
+                                            )}
+
+                                            {/* Extend: only when paymentPaidToDate differs from contractEndDate */}
+                                            {l.paymentPaidToDate !== l.contractEndDate && (
+                                                <Link href={`/leases/new?extendFrom=${l.id}`} className="btn btn-sm" style={{background: "#e0f2fe", color: "#0369a1", borderColor: "#7dd3fc"}}>
+                                                    ➕ Extend
+                                                </Link>
+                                            )}
 
                                             <button
                                                 className="btn btn-danger btn-sm"

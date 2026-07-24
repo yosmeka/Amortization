@@ -114,8 +114,7 @@ export interface AmortizationReportRow {
     rentMinusDue: number;
     rentExpenseAsOf: number;
     dueDifferenceAsOf: number;
-
-
+    dueAsOf: number;
 
 }
 
@@ -266,6 +265,18 @@ export interface RenewalPrefill {
     sdPreviousEndingOutstandingBalance?: number;
     sdPreviousEndingMonth?: number;
     sdPreviousEndingYear?: number;
+    contractEndDate?: string;
+    paymentPaidToDate?: string;
+    meterSquare?: number;
+    meterSquarePriceBeforeVat?: number;
+    vatRate?: number;
+    utilityPayment?: number;
+    sdMeterSquare?: number;
+    sdMeterSquarePriceBeforeVat?: number;
+    sdVatRate?: number;
+    sdUtilityPayment?: number;
+    sdStampDutyFullPayment?: number;
+    sdPaymentPaidToDate?: string;
 }
 
 export async function fetchRenewalPrefill(id: number): Promise<RenewalPrefill> {

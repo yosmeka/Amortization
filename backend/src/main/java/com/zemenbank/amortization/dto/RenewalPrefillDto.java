@@ -53,4 +53,20 @@ public class RenewalPrefillDto {
     private BigDecimal sdPreviousEndingOutstandingBalance;
     private Integer sdPreviousEndingMonth;
     private Integer sdPreviousEndingYear;
+
+    // === Extend Info (pricing and dates) ===
+    private java.time.LocalDate contractEndDate;
+    private java.time.LocalDate paymentPaidToDate;
+    private BigDecimal meterSquare;
+    private BigDecimal meterSquarePriceBeforeVat;
+    private BigDecimal vatRate;
+    private BigDecimal utilityPayment;
+
+    // === Stamp Duty Extend Info ===
+    private BigDecimal sdMeterSquare;
+    private BigDecimal sdMeterSquarePriceBeforeVat;
+    private BigDecimal sdVatRate;
+    private BigDecimal sdUtilityPayment;
+    private BigDecimal sdStampDutyFullPayment;
+    private java.time.LocalDate sdPaymentPaidToDate;
 }

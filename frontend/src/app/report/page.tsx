@@ -93,194 +93,194 @@ export default function ReportPage() {
     };
 
     const exportToExcel = () => {
-    if (!rows.length) {
-        alert("No data available to export.");
-        return;
-    }
+        if (!rows.length) {
+            alert("No data available to export.");
+            return;
+        }
 
-    // Prepare data rows
-    const data = rows.map((r, index) => ({
-        "S/No": r.stampDutyRow ? "" : index + 1,
-        "Box File No": r.boxFileNo || "",
-        "Category of Rent": r.categoryOfRent,
-        "Branch Name": r.branchName,
-        "Branch Code": r.branchCode,
-        "Owner Name": r.ownerName,
-        "Contract Start": fmtDate(r.contractStartDate),
-        "Contract End": fmtDate(r.contractEndDate),
-        "Total No. of Years": r.totalNumberOfYears,
-        "Payment Paid to Date": fmtDate(r.paymentPaidToDate),
-        "Year with Fraction": r.yearWithFraction,
-        "Meter Square": r.meterSquare,
-        "Price/m² Before VAT": r.meterSquarePriceBeforeVat,
-        "VAT Rate": r.vatRate != null ? (r.vatRate * 100) + "%" : "—",
-        "Price/m² After VAT": r.meterSquarePriceAfterVat,
-        "Monthly Rent with VAT": r.monthlyRentWithVat,
-        "Total Annual Rent": r.totalAnnualRentAmount,
-        "Utility / Service Charge": r.utilityPayment,
-        "Full Payment": r.fullPayment,
-        "Total Payment Paid": r.totalPaymentPaidToDate,
-        "Remaining Payment": r.remainingPayment,
-        "Outstanding Balance (Prev)": r.outstandingBalancePriorMonth,
-        "Rent Expense": r.rentExpenseForMonth,
-        "Due": r.dueForMonth,
-        "Rent Expense − Due": r.rentMinusDue,
-        "Reent Expense As Of": r.rentExpenseAsOf,
-        "Due Difference As Of": r.dueDifferenceAsOf,
-        "Prepaid": r.prepaidOfficeRent,
-        "Additional Expense": r.additionalExpense,
-        "Day": r.entryDay,
-        "Outstanding End": r.outstandingBalanceEndOfMonth
-    }));
+        // Prepare data rows
+        const data = rows.map((r, index) => ({
+            "S/No": r.stampDutyRow ? "" : index + 1,
+            "Box File No": r.boxFileNo || "",
+            "Category of Rent": r.categoryOfRent,
+            "Branch Name": r.branchName,
+            "Branch Code": r.branchCode,
+            "Owner Name": r.ownerName,
+            "Contract Start": fmtDate(r.contractStartDate),
+            "Contract End": fmtDate(r.contractEndDate),
+            "Total No. of Years": r.totalNumberOfYears,
+            "Payment Paid to Date": fmtDate(r.paymentPaidToDate),
+            "Year with Fraction": r.yearWithFraction,
+            "Meter Square": r.meterSquare,
+            "Price/m² Before VAT": r.meterSquarePriceBeforeVat,
+            "VAT Rate": r.vatRate != null ? (r.vatRate * 100) + "%" : "—",
+            "Price/m² After VAT": r.meterSquarePriceAfterVat,
+            "Monthly Rent with VAT": r.monthlyRentWithVat,
+            "Total Annual Rent": r.totalAnnualRentAmount,
+            "Utility / Service Charge": r.utilityPayment,
+            "Full Payment": r.fullPayment,
+            "Total Payment Paid": r.totalPaymentPaidToDate,
+            "Remaining Payment": r.remainingPayment,
+            "Outstanding Balance (Prev)": r.outstandingBalancePriorMonth,
+            "Rent Expense": r.rentExpenseForMonth,
+            "Due": r.dueForMonth,
+            "Rent Expense − Due": r.rentMinusDue,
+            "Reent Expense As Of": r.rentExpenseAsOf,
+            "Due Difference As Of": r.dueDifferenceAsOf,
+            "Prepaid": r.prepaidOfficeRent,
+            "Additional Expense": r.additionalExpense,
+            "Day": r.entryDay,
+            "Outstanding End": r.outstandingBalanceEndOfMonth
+        }));
 
-    // Add total row
-    const totalRow = {
-        "S/No": "TOTAL",
-        "Box File No": "",
-        "Category of Rent": "",
-        "Branch Name": "",
-        "Branch Code": "",
-        "Owner Name": "",
-        "Contract Start": "",
-        "Contract End": "",
-        "Total No. of Years": 0,
-        "Payment Paid to Date": "",
-        "Year with Fraction": 0,
-        "Meter Square": rows.reduce((sum, r) => sum + (r.meterSquare || 0), 0),
-        "Price/m² Before VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceBeforeVat || 0), 0),
-        "VAT Rate": "",
-        "Price/m² After VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceAfterVat || 0), 0),
-        "Monthly Rent with VAT": rows.reduce((sum, r) => sum + (r.monthlyRentWithVat || 0), 0),
-        "Total Annual Rent": rows.reduce((sum, r) => sum + (r.totalAnnualRentAmount || 0), 0),
-        "Utility / Service Charge": rows.reduce((sum, r) => sum + (r.utilityPayment || 0), 0),
-        "Full Payment": rows.reduce((sum, r) => sum + (r.fullPayment || 0), 0),
-        "Total Payment Paid": rows.reduce((sum, r) => sum + (r.totalPaymentPaidToDate || 0), 0),
-        "Remaining Payment": rows.reduce((sum, r) => sum + (r.remainingPayment || 0), 0),
-        "Outstanding Balance (Prev)": rows.reduce((sum, r) => sum + (r.outstandingBalancePriorMonth || 0), 0),
-        "Rent Expense": rows.reduce((sum, r) => sum + (r.rentExpenseForMonth || 0), 0),
-        "Due": rows.reduce((sum, r) => sum + (r.dueForMonth || 0), 0),
-        "Rent Expense − Due": 0,
-        "Reent Expense As Of": 0,
-        "Due Difference As Of": 0,
-        "Prepaid": rows.reduce((sum, r) => sum + (r.prepaidOfficeRent || 0), 0),
-        "Additional Expense": rows.reduce((sum, r) => sum + (r.additionalExpense || 0), 0),
-        "Day": 0,
-        "Outstanding End": rows.reduce((sum, r) => sum + (r.outstandingBalanceEndOfMonth || 0), 0)
+        // Add total row
+        const totalRow = {
+            "S/No": "TOTAL",
+            "Box File No": "",
+            "Category of Rent": "",
+            "Branch Name": "",
+            "Branch Code": "",
+            "Owner Name": "",
+            "Contract Start": "",
+            "Contract End": "",
+            "Total No. of Years": 0,
+            "Payment Paid to Date": "",
+            "Year with Fraction": 0,
+            "Meter Square": rows.reduce((sum, r) => sum + (r.meterSquare || 0), 0),
+            "Price/m² Before VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceBeforeVat || 0), 0),
+            "VAT Rate": "",
+            "Price/m² After VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceAfterVat || 0), 0),
+            "Monthly Rent with VAT": rows.reduce((sum, r) => sum + (r.monthlyRentWithVat || 0), 0),
+            "Total Annual Rent": rows.reduce((sum, r) => sum + (r.totalAnnualRentAmount || 0), 0),
+            "Utility / Service Charge": rows.reduce((sum, r) => sum + (r.utilityPayment || 0), 0),
+            "Full Payment": rows.reduce((sum, r) => sum + (r.fullPayment || 0), 0),
+            "Total Payment Paid": rows.reduce((sum, r) => sum + (r.totalPaymentPaidToDate || 0), 0),
+            "Remaining Payment": rows.reduce((sum, r) => sum + (r.remainingPayment || 0), 0),
+            "Outstanding Balance (Prev)": rows.reduce((sum, r) => sum + (r.outstandingBalancePriorMonth || 0), 0),
+            "Rent Expense": rows.reduce((sum, r) => sum + (r.rentExpenseForMonth || 0), 0),
+            "Due": rows.reduce((sum, r) => sum + (r.dueForMonth || 0), 0),
+            "Rent Expense − Due": 0,
+            "Reent Expense As Of": 0,
+            "Due Difference As Of": 0,
+            "Prepaid": rows.reduce((sum, r) => sum + (r.prepaidOfficeRent || 0), 0),
+            "Additional Expense": rows.reduce((sum, r) => sum + (r.additionalExpense || 0), 0),
+            "Day": 0,
+            "Outstanding End": rows.reduce((sum, r) => sum + (r.outstandingBalanceEndOfMonth || 0), 0)
+        };
+        data.push(totalRow);
+
+        const monthName = MONTHS[month - 1];
+        const categoryText = category ? ` - ${category}` : " (All Categories)";
+
+        // Column headers
+        const headers = Object.keys(data[0]);
+
+        // Create an empty worksheet
+        const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+        // --------------------
+        // Row 1 : Title
+        // --------------------
+        XLSX.utils.sheet_add_aoa(
+            worksheet,
+            [[`Monthly Amortization Report for ${monthName} ${year}${categoryText}`]],
+            { origin: "A1" }
+        );
+
+        // --------------------
+        // Row 2 : Column Headers
+        // --------------------
+        XLSX.utils.sheet_add_aoa(
+            worksheet,
+            [headers],
+            { origin: "A2" }
+        );
+
+        // --------------------
+        // Row 3 : Data
+        // --------------------
+        XLSX.utils.sheet_add_json(
+            worksheet,
+            data,
+            {
+                origin: "A3",
+                skipHeader: true
+            }
+        );
+
+        // Merge title
+        const numCols = headers.length;
+
+        worksheet["!merges"] = [
+            {
+                s: { r: 0, c: 0 },
+                e: { r: 0, c: numCols - 1 }
+            }
+        ];
+
+        // Optional title style (works only with xlsx-style / SheetJS Pro)
+        worksheet["A1"].s = {
+            font: {
+                bold: true,
+                sz: 16
+            },
+            alignment: {
+                horizontal: "center",
+                vertical: "center"
+            }
+        };
+
+        // Row height for title
+        worksheet["!rows"] = [
+            { hpt: 24 }
+        ];
+
+        // Optimized column widths
+        worksheet["!cols"] = [
+            { wch: 6 },   // S/No
+            { wch: 6 },  // Box File No
+            { wch: 9 },  // Category of Rent
+            { wch: 30 },  // Branch Name
+            { wch: 9 },  // Branch Code
+            { wch: 28 },  // Owner Name
+            { wch: 14 },  // Contract Start
+            { wch: 14 },  // Contract End
+            { wch: 12 },  // Total No. of Years
+            { wch: 16 },  // Payment Paid to Date
+            { wch: 14 },  // Year with Fraction
+            { wch: 12 },  // Meter Square
+            { wch: 14 },  // Price/m² Before VAT
+            { wch: 6 },  // VAT Rate
+            { wch: 14 },  // Price/m² After VAT
+            { wch: 14 },  // Monthly Rent with VAT
+            { wch: 14 },  // Total Annual Rent
+            { wch: 14 },  // Utility / Service Charge
+            { wch: 14 },  // Full Payment
+            { wch: 14 },  // Total Payment Paid
+            { wch: 14 },  // Remaining Payment
+            { wch: 18 },  // Outstanding Balance (Prev)
+            { wch: 18 },  // Rent Expense
+            { wch: 12 },  // Total
+            { wch: 18 },  // Due
+            { wch: 14 },  // Rent Expense − Due
+            { wch: 18 },  // Rent Expense As Of
+            { wch: 18 },  // Due Difference As Of
+            { wch: 14 },  // Prepaid
+            { wch: 14 },  // Additional Expense
+            { wch: 8 },   // Day
+            { wch: 16 },  // Outstanding End
+        ];
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const file = new Blob([excelBuffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+
+        saveAs(file, `Amortization_Report_${monthName}_${year}${category ? `_${category}` : ""}.xlsx`);
     };
-    data.push(totalRow);
-
-const monthName = MONTHS[month - 1];
-const categoryText = category ? ` - ${category}` : " (All Categories)";
-
-// Column headers
-const headers = Object.keys(data[0]);
-
-// Create an empty worksheet
-const worksheet = XLSX.utils.aoa_to_sheet([]);
-
-// --------------------
-// Row 1 : Title
-// --------------------
-XLSX.utils.sheet_add_aoa(
-    worksheet,
-    [[`Monthly Amortization Report for ${monthName} ${year}${categoryText}`]],
-    { origin: "A1" }
-);
-
-// --------------------
-// Row 2 : Column Headers
-// --------------------
-XLSX.utils.sheet_add_aoa(
-    worksheet,
-    [headers],
-    { origin: "A2" }
-);
-
-// --------------------
-// Row 3 : Data
-// --------------------
-XLSX.utils.sheet_add_json(
-    worksheet,
-    data,
-    {
-        origin: "A3",
-        skipHeader: true
-    }
-);
-
-// Merge title
-const numCols = headers.length;
-
-worksheet["!merges"] = [
-    {
-        s: { r: 0, c: 0 },
-        e: { r: 0, c: numCols - 1 }
-    }
-];
-
-// Optional title style (works only with xlsx-style / SheetJS Pro)
-worksheet["A1"].s = {
-    font: {
-        bold: true,
-        sz: 16
-    },
-    alignment: {
-        horizontal: "center",
-        vertical: "center"
-    }
-};
-
-// Row height for title
-worksheet["!rows"] = [
-    { hpt: 24 }
-];
-
-    // Optimized column widths
-  worksheet["!cols"] = [
-        { wch: 6 },   // S/No
-        { wch: 6 },  // Box File No
-        { wch: 9 },  // Category of Rent
-        { wch: 30 },  // Branch Name
-        { wch: 9 },  // Branch Code
-        { wch: 28 },  // Owner Name
-        { wch: 14 },  // Contract Start
-        { wch: 14 },  // Contract End
-        { wch: 12 },  // Total No. of Years
-        { wch: 16 },  // Payment Paid to Date
-        { wch: 14 },  // Year with Fraction
-        { wch: 12 },  // Meter Square
-        { wch: 14 },  // Price/m² Before VAT
-        { wch: 6 },  // VAT Rate
-        { wch: 14 },  // Price/m² After VAT
-        { wch: 14 },  // Monthly Rent with VAT
-        { wch: 14 },  // Total Annual Rent
-        { wch: 14 },  // Utility / Service Charge
-        { wch: 14 },  // Full Payment
-        { wch: 14 },  // Total Payment Paid
-        { wch: 14 },  // Remaining Payment
-        { wch: 18},  // Outstanding Balance (Prev)
-        { wch: 18 },  // Rent Expense
-        { wch: 12 },  // Total
-        { wch: 18 },  // Due
-        { wch: 14 },  // Rent Expense − Due
-        { wch: 18 },  // Rent Expense As Of
-        { wch: 18 },  // Due Difference As Of
-        { wch: 14 },  // Prepaid
-        { wch: 14 },  // Additional Expense
-        { wch: 8 },   // Day
-        { wch: 16 },  // Outstanding End
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const file = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    });
-
-    saveAs(file, `Amortization_Report_${monthName}_${year}${category ? `_${category}` : ""}.xlsx`);
-};
 
 
 
@@ -315,6 +315,7 @@ worksheet["!rows"] = [
                     additionalExpense: r.additionalExpense?.toString() ?? "0",
                     entryDay: r.entryDay?.toString() ?? "",
                 };
+
             });
             setEdits(init);
         } catch { setError("Failed to load report. Is the backend running?"); }
@@ -797,7 +798,7 @@ worksheet["!rows"] = [
 
                         {/* Modal Content */}
                         <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                            
+
                             {/* Filter and Assign Control Bar */}
                             <div style={{
                                 background: "#f8fafc",
@@ -905,11 +906,11 @@ worksheet["!rows"] = [
                                                     type="checkbox"
                                                     onChange={e => {
                                                         const filteredList = allLeases.filter(l => {
-                                                            const matchesSearch = 
+                                                            const matchesSearch =
                                                                 (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                                 (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                                 (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
-                                                            const matchesCat = 
+                                                            const matchesCat =
                                                                 assignCategory === "All" ||
                                                                 (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
                                                             return matchesSearch && matchesCat;
@@ -921,13 +922,13 @@ worksheet["!rows"] = [
                                                         }
                                                     }}
                                                     checked={
-                                                        allLeases.length > 0 && 
+                                                        allLeases.length > 0 &&
                                                         allLeases.filter(l => {
-                                                            const matchesSearch = 
+                                                            const matchesSearch =
                                                                 (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                                 (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                                 (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
-                                                            const matchesCat = 
+                                                            const matchesCat =
                                                                 assignCategory === "All" ||
                                                                 (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
                                                             return matchesSearch && matchesCat;
@@ -945,11 +946,11 @@ worksheet["!rows"] = [
                                     <tbody>
                                         {allLeases
                                             .filter(l => {
-                                                const matchesSearch = 
+                                                const matchesSearch =
                                                     (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                     (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                     (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
-                                                const matchesCat = 
+                                                const matchesCat =
                                                     assignCategory === "All" ||
                                                     (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
                                                 return matchesSearch && matchesCat;
@@ -986,21 +987,21 @@ worksheet["!rows"] = [
                                                 );
                                             })}
                                         {allLeases.filter(l => {
-                                            const matchesSearch = 
+                                            const matchesSearch =
                                                 (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                 (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                 (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
-                                            const matchesCat = 
+                                            const matchesCat =
                                                 assignCategory === "All" ||
                                                 (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
                                             return matchesSearch && matchesCat;
                                         }).length === 0 && (
-                                            <tr>
-                                                <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                                                    No contracts found.
-                                                </td>
-                                            </tr>
-                                        )}
+                                                <tr>
+                                                    <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
+                                                        No contracts found.
+                                                    </td>
+                                                </tr>
+                                            )}
                                     </tbody>
                                 </table>
                             </div>

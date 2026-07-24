@@ -37,6 +37,8 @@ function NewLeasePageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const renewFromId = searchParams.get("renewFrom");
+    const extendFromId = searchParams.get("extendFrom");
+    const sourceId = renewFromId || extendFromId;
 
     const [form, setForm] = useState<LeaseContractRequest>({ ...EMPTY_FORM });
     const [loading, setLoading] = useState(false);
@@ -44,12 +46,31 @@ function NewLeasePageInner() {
     const [renewalInfo, setRenewalInfo] = useState<RenewalPrefill | null>(null);
     const [prefillLoading, setPrefillLoading] = useState(false);
 
-    // Pre-fill form when renewFrom is present
+    // Pre-fill form when renewFrom or extendFrom is present
     useEffect(() => {
-        if (!renewFromId) return;
+        if (!sourceId) return;
         setPrefillLoading(true);
-        fetchRenewalPrefill(Number(renewFromId))
+        fetchRenewalPrefill(Number(sourceId))
             .then(data => {
+                const isExtend = !!extendFromId;
+                const isRenew = !!renewFromId;
+
+                // Extend: start = paymentPaidToDate + 1 day
+                let extendStartDate = "";
+                if (isExtend && data.paymentPaidToDate) {
+                    const d = new Date(data.paymentPaidToDate);
+                    d.setDate(d.getDate() + 1);
+                    extendStartDate = d.toISOString().split("T")[0];
+                }
+
+                // Renew: start = contractEndDate + 1 day
+                let renewStartDate = "";
+                if (isRenew && data.contractEndDate) {
+                    const d = new Date(data.contractEndDate);
+                    d.setDate(d.getDate() + 1);
+                    renewStartDate = d.toISOString().split("T")[0];
+                }
+
                 setRenewalInfo(data);
                 setForm(prev => ({
                     ...prev,
@@ -75,6 +96,13 @@ function NewLeasePageInner() {
                     initialOutstandingBalance: data.previousEndingOutstandingBalance ?? 0,
                     initialOutstandingBalanceMonth: data.previousEndingMonth ?? (new Date().getMonth() + 1),
                     initialOutstandingBalanceYear: data.previousEndingYear ?? new Date().getFullYear(),
+                    // Contract dates: extend uses extendStartDate, renew uses renewStartDate
+                    contractStartDate: isExtend ? extendStartDate : (isRenew ? renewStartDate : prev.contractStartDate),
+                    contractEndDate: isExtend ? (data.contractEndDate ?? prev.contractEndDate) : prev.contractEndDate,
+                    meterSquare: isExtend ? (data.meterSquare ?? prev.meterSquare) : prev.meterSquare,
+                    meterSquarePriceBeforeVat: isExtend ? (data.meterSquarePriceBeforeVat ?? prev.meterSquarePriceBeforeVat) : prev.meterSquarePriceBeforeVat,
+                    vatRate: isExtend ? (data.vatRate ?? prev.vatRate) : prev.vatRate,
+                    utilityPayment: isExtend ? (data.utilityPayment ?? prev.utilityPayment) : prev.utilityPayment,
                     // Stamp duty
                     hasStampDuty: data.hasStampDuty,
                     previousContractId: data.previousContractId,
@@ -83,12 +111,18 @@ function NewLeasePageInner() {
                         initialOutstandingBalance: data.sdPreviousEndingOutstandingBalance ?? 0,
                         initialOutstandingBalanceMonth: data.sdPreviousEndingMonth ?? (new Date().getMonth() + 1),
                         initialOutstandingBalanceYear: data.sdPreviousEndingYear ?? new Date().getFullYear(),
+                        // Extend specific stamp duty fields
+                        meterSquare: isExtend ? (data.sdMeterSquare ?? prev.stampDuty!.meterSquare) : prev.stampDuty!.meterSquare,
+                        meterSquarePriceBeforeVat: isExtend ? (data.sdMeterSquarePriceBeforeVat ?? prev.stampDuty!.meterSquarePriceBeforeVat) : prev.stampDuty!.meterSquarePriceBeforeVat,
+                        vatRate: isExtend ? (data.sdVatRate ?? prev.stampDuty!.vatRate) : prev.stampDuty!.vatRate,
+                        utilityPayment: isExtend ? (data.sdUtilityPayment ?? prev.stampDuty!.utilityPayment) : prev.stampDuty!.utilityPayment,
+                        stampDutyFullPayment: isExtend ? (data.sdStampDutyFullPayment ?? prev.stampDuty!.stampDutyFullPayment) : prev.stampDuty!.stampDutyFullPayment,
                     } : prev.stampDuty,
                 }));
             })
-            .catch(() => setAlert({ type: "error", msg: "Failed to load contract data for renewal." }))
+            .catch(() => setAlert({ type: "error", msg: "Failed to load contract data for " + (extendFromId ? "extension" : "renewal") + "." }))
             .finally(() => setPrefillLoading(false));
-    }, [renewFromId]);
+    }, [sourceId, extendFromId]);
 
     // ── Generic field updater ──
     const set = (field: keyof LeaseContractRequest, value: unknown) =>
@@ -115,8 +149,10 @@ function NewLeasePageInner() {
     return (
         <form onSubmit={handleSubmit}>
             <div className="page-header">
-                <h2>{renewFromId ? "🔄 Renew Lease Contract" : "Register Rent Lease Contract"}</h2>
-                <p>{renewFromId
+                <h2>{extendFromId ? "➕ Extend Lease Contract" : renewFromId ? "🔄 Renew Lease Contract" : "Register Rent Lease Contract"}</h2>
+                <p>{extendFromId
+                    ? "Extending an existing contract period. Contract end date and pricing are kept the same. Start date is computed from the previous paid-to-date."
+                    : renewFromId
                     ? "Adding a new period for an existing contract. Branch and lessor info is pre-filled. Enter new dates and pricing."
                     : "Fill in all sections. If the office has a stamp duty component, enable it at the bottom."
                 }</p>
@@ -129,9 +165,9 @@ function NewLeasePageInner() {
                     borderRadius: 8, padding: "0.9rem 1.2rem", marginBottom: "1rem",
                     display: "flex", alignItems: "flex-start", gap: "0.75rem"
                 }}>
-                    <span style={{ fontSize: "1.4rem" }}>🔄</span>
+                    <span style={{ fontSize: "1.4rem" }}>{extendFromId ? "➕" : "🔄"}</span>
                     <div>
-                        <strong>Renewing from Contract #{renewalInfo.previousContractId}</strong>
+                        <strong>{extendFromId ? "Extending" : "Renewing"} from Contract #{renewalInfo.previousContractId}</strong>
                         <div style={{ fontSize: "0.85rem", color: "#0369a1", marginTop: 4 }}>
                             Branch info, lessor details and initial outstanding balance have been
                             pre-filled from the previous period.

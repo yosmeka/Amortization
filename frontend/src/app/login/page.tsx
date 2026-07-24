@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUser } from "@/lib/api";
 import Image from "next/image";
-import bgImage from "../../../public/bg.png";
+import bgImage from "../../../public/bg7.png";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -52,7 +52,7 @@ export default function LoginPage() {
                     src={bgImage}
                     alt="Background"
                     fill
-                    className="object-cover object-center"
+                    className="object-cover object-center scale-[1.08] md:scale-[1]"   // ← Zoomed out a bit
                     quality={100}
                     priority
                 />
