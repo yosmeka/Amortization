@@ -395,12 +395,14 @@ export default function ReportPage() {
     return (
         <div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginBottom: "1rem" }}>
+
                 <button onClick={exportToExcel} className="btn btn-success btn-sm">
                     📥 Export Excel
                 </button>
                 <button onClick={handlePrint} className="btn btn-secondary btn-sm">
                     🖨 Print
                 </button>
+
             </div>
             <div className="page-header">
                 <h2>Monthly Amortization Report</h2>
