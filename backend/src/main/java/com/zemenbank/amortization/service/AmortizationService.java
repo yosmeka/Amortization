@@ -247,7 +247,35 @@ public class AmortizationService {
     // =========================================================
     // REPORT GENERATION for a given month/year
     // =========================================================
+/**
+ * Extension = linked to a previous contract, new end date is still within
+ * the original contract's end date, and monthly rent is unchanged.
+ * Renewal = previous contract exists but period goes beyond / price changed.
+ */
+private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
+    if (lease.getPreviousContractId() == null) {
+        return false;
+    }
+    Optional<LeaseContract> prevOpt = leaseRepo.findById(lease.getPreviousContractId());
+    if (prevOpt.isEmpty()) {
+        return false;
+    }
+    LeaseContract prev = prevOpt.get();
 
+    // Still within original contract end date
+    boolean withinOriginalPeriod = lease.getContractEndDate() != null
+            && prev.getContractEndDate() != null
+            && !lease.getContractEndDate().isAfter(prev.getContractEndDate());
+
+    // Same monthly rate (office or stamp duty)
+    BigDecimal newMR = calcMonthlyRent(sd, lease);
+    BigDecimal oldMR = calcMonthlyRent(
+            sd != null && prev.isHasStampDuty() ? prev.getStampDutyContract() : null,
+            prev);
+    boolean samePrice = newMR.compareTo(oldMR) == 0;
+
+    return withinOriginalPeriod && samePrice;
+}
     @Transactional
     public List<AmortizationReportRow> generateReport(int month, int year, String category) {
         List<LeaseContract> allLeases = leaseRepo.findAll();
@@ -412,18 +440,25 @@ public class AmortizationService {
                 // Outstanding end uses the effective rent (drives next month's chain)
                 BigDecimal rawEnd = oldPrior.add(prepaid).subtract(effectiveRent).setScale(SCALE, RM);
                 officeRow.setOutstandingBalanceEndOfMonth(rawEnd.max(BigDecimal.ZERO).setScale(SCALE, RM));
+                // Extension → 0; true renewal → keep difference
+                if (isContractExtension(lease, null)) {
+                    officeRow.setRentMinusDue(BigDecimal.ZERO);
+                } else {
+                    BigDecimal overlapDue = officeRow.getDueForMonth();
+                    officeRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
+                }
 
                 // Rent Expense − Due: always use the NEW contract's prorated days as base
                 // (independent of whether prepaid is entered or not)
-                BigDecimal overlapDue = officeRow.getDueForMonth();
-                officeRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
+                // BigDecimal overlapDue = officeRow.getDueForMonth();
+                // officeRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
             }
 
             if (officeExpired) {
                 // Amortization finished: force outstanding to 0, but respect user overrides
                 BigDecimal monthlyRent = officeRow.getMonthlyRentWithVat();
-                officeRow.setOutstandingBalancePriorMonth(BigDecimal.ZERO);
-                officeRow.setOutstandingBalanceEndOfMonth(BigDecimal.ZERO);
+                // officeRow.setOutstandingBalancePriorMonth(BigDecimal.ZERO);
+                // officeRow.setOutstandingBalanceEndOfMonth(BigDecimal.ZERO);
                 officeRow.setPrepaidOfficeRent(BigDecimal.ZERO);
                 if (!officeRow.isRentExpenseOverridden()) {
                     officeRow.setRentExpenseForMonth(monthlyRent);
@@ -485,15 +520,22 @@ public class AmortizationService {
                     BigDecimal rawEnd = oldPrior.add(prepaid).subtract(effectiveRent).setScale(SCALE, RM);
                     sdRow.setOutstandingBalanceEndOfMonth(rawEnd.max(BigDecimal.ZERO).setScale(SCALE, RM));
 
+                    // Extension → 0; true renewal → keep difference
+                    if (isContractExtension(lease, sd)) {
+                        sdRow.setRentMinusDue(BigDecimal.ZERO);
+                    } else {
+                        BigDecimal overlapDue = sdRow.getDueForMonth();
+                        sdRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
+                    }
                     // Rent Expense − Due: always use newProrate (new SD's prorated days) as base
-                    BigDecimal overlapDue = sdRow.getDueForMonth();
-                    sdRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
+                    // BigDecimal overlapDue = sdRow.getDueForMonth();
+                    // sdRow.setRentMinusDue(newProrate.subtract(overlapDue).setScale(SCALE, RM));
                 }
 
                 if (sdExpired) {
                     BigDecimal monthlyRent = sdRow.getMonthlyRentWithVat();
-                    sdRow.setOutstandingBalancePriorMonth(BigDecimal.ZERO);
-                    sdRow.setOutstandingBalanceEndOfMonth(BigDecimal.ZERO);
+                    // sdRow.setOutstandingBalancePriorMonth(BigDecimal.ZERO);
+                    // sdRow.setOutstandingBalanceEndOfMonth(BigDecimal.ZERO);
                     sdRow.setPrepaidOfficeRent(BigDecimal.ZERO);
                     if (!sdRow.isRentExpenseOverridden()) {
                         sdRow.setRentExpenseForMonth(monthlyRent);
@@ -737,7 +779,7 @@ public class AmortizationService {
         // This is required by prepaid suggestion aggregation.
         BigDecimal baseForDiff = firstMonth ? rentExpense : monthlyRent;
         BigDecimal rentMinusDue;
-        if (lease.getPreviousContractId() == null) {
+        if (lease.getPreviousContractId() == null || isContractExtension(lease, sd)) {
             // No renewal: Rent Expense − Due is always 0
             rentMinusDue = BigDecimal.ZERO;
         } else {
@@ -873,6 +915,7 @@ public class AmortizationService {
         }
 
         // ── 3. No prepaid ever saved → do normal suggestion calculation ──
+               // ── 3. No prepaid ever saved → do normal suggestion calculation ──
         BigDecimal annualRent;
         BigDecimal utility;
         LocalDate paidToDate;
@@ -891,14 +934,22 @@ public class AmortizationService {
             annualRent = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(MONEY_SCALE, MONEY_RM);
         }
 
-        BigDecimal yearWithFractionRounded = BigDecimal.ZERO;
+        // Use WHOLE years (anniversary-based), NOT days/365 fraction.
+        // e.g. 10-Jun-2024 → 09-Jun-2027 = 3 years; 10-Jun-2027 → 09-Jun-2028 = 1 year
+        BigDecimal wholeYears = BigDecimal.ZERO;
         if (paidToDate != null && !paidToDate.isBefore(startDate)) {
-            long paidDays = ChronoUnit.DAYS.between(startDate, paidToDate);
-            yearWithFractionRounded = BigDecimal.valueOf(paidDays)
-                    .divide(DAYS_IN_YEAR, 10, RM)
-                    .setScale(8, RM);
+            wholeYears = calcTotalNumberOfYears(startDate, paidToDate);
         }
-        BigDecimal totalPaid = annualRent.multiply(yearWithFractionRounded).add(utility).setScale(MONEY_SCALE, MONEY_RM);
+
+        // totalPaid = annualRent × wholeYears + utility
+        // (for stamp duty, fullPayment is already the fixed amount for the period)
+        BigDecimal totalPaid;
+        if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
+            // Stamp duty: full registered amount is the period payment
+            totalPaid = fullPayment.add(utility).setScale(MONEY_SCALE, MONEY_RM);
+        } else {
+            totalPaid = annualRent.multiply(wholeYears).add(utility).setScale(MONEY_SCALE, MONEY_RM);
+        }
 
         BigDecimal previousSum = BigDecimal.ZERO;
         java.time.YearMonth current = java.time.YearMonth.of(startDate.getYear(), startDate.getMonthValue());
@@ -1152,58 +1203,55 @@ public class AmortizationService {
         return val != null ? val : BigDecimal.ZERO;
     }
 
-    private BigDecimal computeCumulativeRentExpenseAsOf(
-            LeaseContract lease, StampDutyContract sd,
-            AmortizationReportRow currentRow,
-            int targetMonth, int targetYear,
-            java.util.Map<String, AmortizationReportRow> rowCache, InMemoryEntryCache entryCache) {
+   private BigDecimal computeCumulativeRentExpenseAsOf(
+        LeaseContract lease, StampDutyContract sd,
+        AmortizationReportRow currentRow,
+        int targetMonth, int targetYear,
+        java.util.Map<String, AmortizationReportRow> rowCache, InMemoryEntryCache entryCache) {
 
-        BigDecimal cum = BigDecimal.ZERO;
+    BigDecimal cum = BigDecimal.ZERO;
 
-        boolean prepaidTriggered = false;
+    boolean prepaidTriggered = false;
 
-        LocalDate contractStart = lease.getContractStartDate();
-        YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
-        YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
+    LocalDate contractStart = lease.getContractStartDate();
+    YearMonth ym = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
+    YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
 
-        while (!ym.isAfter(targetYm)) {
+    while (!ym.isAfter(targetYm)) {
 
-            int m = ym.getMonthValue();
-            int y = ym.getYear();
+        int m = ym.getMonthValue();
+        int y = ym.getYear();
 
-            BigDecimal due, rent;
+        BigDecimal due, rent;
 
-            if (ym.equals(targetYm)) {
-                due = safe(currentRow.getDueForMonth());
-                rent = safe(currentRow.getRentExpenseForMonth());
-            } else {
-                AmortizationReportRow row = buildRowForAnyMonth(lease, sd, m, y, rowCache, entryCache);
-                due = safe(row.getDueForMonth());
-                rent = safe(row.getRentExpenseForMonth());
-            }
-
-            // FIXED LOGIC
-            if (!prepaidTriggered) {
-
-                if (due.compareTo(BigDecimal.ZERO) > 0) {
-                    // normal accumulation
-                    cum = cum.add(due);
-                } else {
-                    // prepaid month → ADD rent ON TOP of previous cum
-                    cum = cum.add(rent);
-                    prepaidTriggered = true;
-                }
-
-            } else {
-                // AFTER prepaid → only current rent
-                cum = rent;
-            }
-
-            ym = ym.plusMonths(1);
+        if (ym.equals(targetYm)) {
+            due = safe(currentRow.getDueForMonth());
+            rent = safe(currentRow.getRentExpenseForMonth());
+        } else {
+            AmortizationReportRow row = buildRowForAnyMonth(lease, sd, m, y, rowCache, entryCache);
+            due = safe(row.getDueForMonth());
+            rent = safe(row.getRentExpenseForMonth());
         }
 
-        return cum.setScale(SCALE, RM);
+        if (!prepaidTriggered) {
+            if (due.compareTo(BigDecimal.ZERO) > 0) {
+                // Due > 0 → keep summing Due
+                cum = cum.add(due);
+            } else {
+                // Due == 0 → use current month rent ONLY (do not add on top of prior sum)
+                cum = rent;
+                prepaidTriggered = true;
+            }
+        } else {
+            // After prepaid month → always only current month rent
+            cum = rent;
+        }
+
+        ym = ym.plusMonths(1);
     }
+
+    return cum.setScale(SCALE, RM);
+}
 
     /**
      * Cumulative "Due Difference As Of [Month]":
