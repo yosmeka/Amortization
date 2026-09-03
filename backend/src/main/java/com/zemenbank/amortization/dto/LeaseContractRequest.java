@@ -47,6 +47,8 @@ public class LeaseContractRequest {
     private BigDecimal meterSquarePriceBeforeVat;
     private BigDecimal vatRate;                  // default 0.15
     private BigDecimal utilityPayment;
+    /** Full utility payment for the entire contract period. */
+    private BigDecimal utilityPaymentFullPayment;
     private String paymentModality;
     private String discountRate;
     private String ownerName;
@@ -62,6 +64,9 @@ public class LeaseContractRequest {
 
     // Whether this contract also has a stamp duty component
     private boolean hasStampDuty;
+
+    // Whether this contract has a standalone utility payment component
+    private boolean hasUtilityPayment;
 
     // Stamp duty sub-details (only used when hasStampDuty = true)
     private StampDutyRequest stampDuty;

@@ -13,6 +13,7 @@ interface Lease {
     contractEndDate: string;
     paymentPaidToDate?: string;
     hasStampDuty: boolean;
+    hasUtilityPayment: boolean;
     meterSquare: number;
     meterSquarePriceBeforeVat: number;
     vatRate: number;
@@ -152,6 +153,7 @@ export default function LeasesPage() {
                                 <th>Price/m² (before VAT)</th>
                                 <th>Monthly Rent + VAT</th>
                                 <th>Stamp Duty</th>
+                                <th>Utility</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -160,7 +162,7 @@ export default function LeasesPage() {
                         <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={12} style={{
+                                        <td colSpan={13} style={{
                                         textAlign: "center",
                                         color: "#94a3b8",
                                         padding: "2rem"
@@ -190,6 +192,9 @@ export default function LeasesPage() {
 
                                         <td style={{ textAlign: "center" }}>
                                             {l.hasStampDuty ? "Yes" : "No"}
+                                        </td>
+                                        <td style={{ textAlign: "center" }}>
+                                            {l.hasUtilityPayment ? "Yes" : "No"}
                                         </td>
 
                                         <td>

@@ -92,6 +92,8 @@ public class AmortizationService {
                 .meterSquarePriceBeforeVat(req.getMeterSquarePriceBeforeVat())
                 .vatRate(req.getVatRate() != null ? req.getVatRate() : new BigDecimal("0.15"))
                 .utilityPayment(req.getUtilityPayment() != null ? req.getUtilityPayment() : BigDecimal.ZERO)
+                .utilityPaymentFullPayment(req.getUtilityPaymentFullPayment() != null
+                    ? req.getUtilityPaymentFullPayment() : BigDecimal.ZERO)
                 .paymentModality(req.getPaymentModality())
                 .discountRate(req.getDiscountRate())
                 .initialOutstandingBalance(req.getInitialOutstandingBalance() != null
@@ -100,6 +102,7 @@ public class AmortizationService {
                 .initialOutstandingBalanceMonth(req.getInitialOutstandingBalanceMonth())
                 .initialOutstandingBalanceYear(req.getInitialOutstandingBalanceYear())
                 .hasStampDuty(req.isHasStampDuty())
+                .hasUtilityPayment(req.isHasUtilityPayment())
                 .previousContractId(req.getPreviousContractId())
                 .approvalStatus(ApprovalStatus.PENDING)
                 .createdBy(getCurrentUsername())
@@ -164,6 +167,8 @@ public class AmortizationService {
         lease.setMeterSquarePriceBeforeVat(req.getMeterSquarePriceBeforeVat());
         lease.setVatRate(req.getVatRate() != null ? req.getVatRate() : new BigDecimal("0.15"));
         lease.setUtilityPayment(req.getUtilityPayment() != null ? req.getUtilityPayment() : BigDecimal.ZERO);
+        lease.setUtilityPaymentFullPayment(req.getUtilityPaymentFullPayment() != null
+            ? req.getUtilityPaymentFullPayment() : BigDecimal.ZERO);
         lease.setPaymentModality(req.getPaymentModality());
         lease.setDiscountRate(req.getDiscountRate());
         lease.setInitialOutstandingBalance(req.getInitialOutstandingBalance() != null
@@ -171,6 +176,7 @@ public class AmortizationService {
                 : BigDecimal.ZERO);
         lease.setInitialOutstandingBalanceMonth(req.getInitialOutstandingBalanceMonth());
         lease.setInitialOutstandingBalanceYear(req.getInitialOutstandingBalanceYear());
+        lease.setHasUtilityPayment(req.isHasUtilityPayment());
 
         // Maker-Checker
         lease.setApprovalStatus(ApprovalStatus.PENDING);
@@ -479,6 +485,9 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
                     computeDueDifferenceAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
             officeRow.setDueAsOf(
                     computeCumulativeDueAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
+            if (!lease.isHasStampDuty() || lease.getStampDutyContract() == null) {
+                officeRow.setTotal(officeRow.getRentExpenseForMonth());
+            }
             rows.add(officeRow);
 
             // --- Stamp duty row (if applicable) ---
@@ -560,6 +569,14 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
                 officeRow.setTotal(null);
                 sdRow.setTotal(total);
             }
+
+            // --- Standalone utility payment row (if applicable) ---
+            if (lease.isHasUtilityPayment()
+                    || (lease.getUtilityPayment() != null && lease.getUtilityPayment().compareTo(BigDecimal.ZERO) > 0)
+                    || (lease.getUtilityPaymentFullPayment() != null
+                            && lease.getUtilityPaymentFullPayment().compareTo(BigDecimal.ZERO) > 0)) {
+                rows.add(buildUtilityPaymentRow(lease, month, year, officeRow));
+            }
         }
 
         return rows;
@@ -574,6 +591,71 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
 
     private AmortizationReportRow buildRow(LeaseContract lease, StampDutyContract sd, int month, int year) {
         return buildRow(lease, sd, month, year, null);
+    }
+
+    private AmortizationReportRow buildUtilityPaymentRow(LeaseContract lease, int month, int year,
+            AmortizationReportRow officeRow) {
+        BigDecimal legacyMonthlyUtility = lease.getUtilityPayment() != null ? lease.getUtilityPayment() : BigDecimal.ZERO;
+        BigDecimal fullPayment = lease.getUtilityPaymentFullPayment() != null
+            && lease.getUtilityPaymentFullPayment().compareTo(BigDecimal.ZERO) > 0
+                ? lease.getUtilityPaymentFullPayment()
+                : legacyMonthlyUtility.multiply(calcTotalNumberOfYears(
+                    lease.getContractStartDate(), lease.getContractEndDate()))
+                    .multiply(BigDecimal.valueOf(12));
+        BigDecimal totalYears = calcTotalNumberOfYears(lease.getContractStartDate(), lease.getContractEndDate());
+        BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12));
+        BigDecimal utility = divisor.compareTo(BigDecimal.ZERO) > 0
+            ? fullPayment.divide(divisor, MONEY_SCALE, MONEY_RM)
+            : legacyMonthlyUtility;
+        LocalDate paidToDate = lease.getPaymentPaidToDate();
+        BigDecimal yearWithFraction = BigDecimal.ZERO;
+        if (paidToDate != null && !paidToDate.isBefore(lease.getContractStartDate())) {
+            yearWithFraction = BigDecimal.valueOf(ChronoUnit.DAYS.between(
+                lease.getContractStartDate(), paidToDate)).divide(DAYS_IN_YEAR, 10, RM);
+        }
+        BigDecimal totalPaid = utility.multiply(BigDecimal.valueOf(12)).multiply(yearWithFraction)
+            .setScale(MONEY_SCALE, MONEY_RM);
+        boolean firstMonth = officeRow.isFirstMonth();
+        BigDecimal utilityExpense = firstMonth
+            ? calcProratedRent(lease.getContractStartDate(), utility)
+            : utility;
+        AmortizationReportRow row = new AmortizationReportRow();
+        row.setLeaseContractId(lease.getId());
+        row.setUtilityPaymentRow(true);
+        row.setBranchName(lease.getBranchName());
+        row.setBranchCode(lease.getBranchCode());
+        row.setOwnerName(lease.getOwnerName());
+        row.setCategoryOfRent(lease.getCategoryOfRent());
+        row.setBoxFileNo(lease.getBoxFileNo());
+        row.setContractStartDate(lease.getContractStartDate());
+        row.setContractEndDate(lease.getContractEndDate());
+        row.setPaymentPaidToDate(lease.getPaymentPaidToDate());
+        row.setTotalNumberOfYears(totalYears);
+        row.setYearWithFraction(yearWithFraction);
+        row.setMeterSquare(BigDecimal.ZERO);
+        row.setMeterSquarePriceBeforeVat(BigDecimal.ZERO);
+        row.setMeterSquarePriceAfterVat(BigDecimal.ZERO);
+        row.setVatRate(BigDecimal.ZERO);
+        row.setMonthlyRentWithVat(utility);
+        row.setTotalAnnualRentAmount(utility.multiply(BigDecimal.valueOf(12)));
+        row.setUtilityPayment(BigDecimal.ZERO);
+        row.setFullPayment(fullPayment.setScale(MONEY_SCALE, MONEY_RM));
+        row.setTotalPaymentPaidToDate(totalPaid);
+        row.setRemainingPayment(fullPayment.subtract(totalPaid).setScale(MONEY_SCALE, MONEY_RM));
+        row.setOutstandingBalancePriorMonth(BigDecimal.ZERO);
+        row.setRentExpenseForMonth(utilityExpense);
+        row.setDueForMonth(utilityExpense);
+        row.setPrepaidOfficeRent(BigDecimal.ZERO);
+        row.setOutstandingBalanceEndOfMonth(BigDecimal.ZERO);
+        row.setRentMinusDue(BigDecimal.ZERO);
+        row.setRentExpenseAsOf(utilityExpense);
+        row.setDueDifferenceAsOf(BigDecimal.ZERO);
+        row.setDueAsOf(utilityExpense);
+        row.setTotal(utilityExpense);
+        row.setReportMonth(month);
+        row.setReportYear(year);
+        row.setFirstMonth(firstMonth);
+        return row;
     }
 
     private AmortizationReportRow buildRow(LeaseContract lease, StampDutyContract sd, int month, int year,
@@ -756,7 +838,7 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
         row.setMeterSquarePriceAfterVat(priceAfterVat);
         row.setMonthlyRentWithVat(monthlyRent);
         row.setTotalAnnualRentAmount(annualRent);
-        row.setUtilityPayment(utilityPayment);
+        row.setUtilityPayment(BigDecimal.ZERO);
         row.setFullPayment(fullPayment);
         row.setTotalPaymentPaidToDate(totalPaid);
         row.setRemainingPayment(remaining);
@@ -917,19 +999,16 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
         // ── 3. No prepaid ever saved → do normal suggestion calculation ──
                // ── 3. No prepaid ever saved → do normal suggestion calculation ──
         BigDecimal annualRent;
-        BigDecimal utility;
         LocalDate paidToDate;
         BigDecimal fullPayment = BigDecimal.ZERO;
 
         if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
             StampDutyContract sd = lease.getStampDutyContract();
             paidToDate = sd.getPaymentPaidToDate() != null ? sd.getPaymentPaidToDate() : lease.getPaymentPaidToDate();
-            utility = sd.getUtilityPayment() != null ? sd.getUtilityPayment() : BigDecimal.ZERO;
             fullPayment = sd.getStampDutyFullPayment() != null ? sd.getStampDutyFullPayment() : BigDecimal.ZERO;
             annualRent = fullPayment.setScale(MONEY_SCALE, MONEY_RM);
         } else {
             paidToDate = lease.getPaymentPaidToDate();
-            utility = lease.getUtilityPayment() != null ? lease.getUtilityPayment() : BigDecimal.ZERO;
             BigDecimal monthlyRent = calcOfficeMonthlyRent(lease);
             annualRent = monthlyRent.multiply(BigDecimal.valueOf(12)).setScale(MONEY_SCALE, MONEY_RM);
         }
@@ -941,14 +1020,12 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
             wholeYears = calcTotalNumberOfYears(startDate, paidToDate);
         }
 
-        // totalPaid = annualRent × wholeYears + utility
-        // (for stamp duty, fullPayment is already the fixed amount for the period)
+        // Prepaid Office Rent excludes the separate utility payment component.
         BigDecimal totalPaid;
         if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
-            // Stamp duty: full registered amount is the period payment
-            totalPaid = fullPayment.add(utility).setScale(MONEY_SCALE, MONEY_RM);
+            totalPaid = fullPayment.setScale(MONEY_SCALE, MONEY_RM);
         } else {
-            totalPaid = annualRent.multiply(wholeYears).add(utility).setScale(MONEY_SCALE, MONEY_RM);
+            totalPaid = annualRent.multiply(wholeYears).setScale(MONEY_SCALE, MONEY_RM);
         }
 
         BigDecimal previousSum = BigDecimal.ZERO;
@@ -1677,6 +1754,7 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
                 .previousEndingMonth(lastMonth)
                 .previousEndingYear(lastYear)
                 .hasStampDuty(lease.isHasStampDuty())
+                .hasUtilityPayment(lease.isHasUtilityPayment())
                 .sdPreviousEndingOutstandingBalance(sdEndingBalance)
                 .sdPreviousEndingMonth(sdEndMonth)
                 .sdPreviousEndingYear(sdEndYear)

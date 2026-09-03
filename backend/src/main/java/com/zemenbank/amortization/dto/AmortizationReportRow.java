@@ -12,6 +12,7 @@ public class AmortizationReportRow {
 
     private Long leaseContractId;
     private boolean stampDutyRow;   // true = this row represents the stamp duty line
+    private boolean utilityPaymentRow; // true = this row represents the standalone utility line
 
     // === Columns 1-4 ===
     private String branchName;

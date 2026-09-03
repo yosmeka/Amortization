@@ -70,6 +70,11 @@ public class LeaseContract {
     @Builder.Default
     private BigDecimal utilityPayment = BigDecimal.ZERO;
 
+    /** Full utility payment for the entire contract period. */
+    @Column(precision = 18, scale = 2)
+    @Builder.Default
+    private BigDecimal utilityPaymentFullPayment = BigDecimal.ZERO;
+
     // === Outstanding Balance at prior month of contract start (manually entered on first registration) ===
     @Column(precision = 18, scale = 8)
     @Builder.Default
@@ -86,6 +91,10 @@ public class LeaseContract {
     // === Whether this contract has a stamp duty component ===
     @Builder.Default
     private boolean hasStampDuty = false;
+
+    // === Whether this contract has a standalone utility payment component ===
+    @Builder.Default
+    private boolean hasUtilityPayment = false;
 
     // --- Lessor Info ---
     private String lessorName1;

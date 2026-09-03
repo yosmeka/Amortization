@@ -100,7 +100,7 @@ export default function ReportPage() {
 
         // Prepare data rows
         const data = rows.map((r, index) => ({
-            "S/No": r.stampDutyRow ? "" : index + 1,
+                "S/No": r.stampDutyRow || r.utilityPaymentRow ? "" : index + 1,
             "Box File No": r.boxFileNo || "",
             "Category of Rent": r.categoryOfRent,
             "Branch Name": r.branchName,
@@ -307,7 +307,7 @@ export default function ReportPage() {
             // Seed edits from loaded data
             const init: typeof edits = {};
             data.forEach(r => {
-                const key = `${r.leaseContractId}-${r.stampDutyRow}`;
+                const key = `${r.leaseContractId}-${r.stampDutyRow}-${r.utilityPaymentRow}`;
                 init[key] = {
                     rentExpense: r.rentExpenseOverridden ? (r.rentExpenseForMonth?.toString() ?? "") : "",
                     due: r.dueForMonthOverridden ? (r.dueForMonth?.toString() ?? "") : "",
@@ -326,7 +326,7 @@ export default function ReportPage() {
         setEdits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
 
     const calcPrepaid = async (row: AmortizationReportRow) => {
-        const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+        const key = `${row.leaseContractId}-${row.stampDutyRow}-${row.utilityPaymentRow}`;
         try {
             const data = await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
 
@@ -359,7 +359,7 @@ export default function ReportPage() {
     };
 
     const handleSave = async (row: AmortizationReportRow) => {
-        const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+        const key = `${row.leaseContractId}-${row.stampDutyRow}-${row.utilityPaymentRow}`;
         const e = edits[key] ?? { rentExpense: "", due: "0", prepaid: "0", additionalExpense: "0", entryDay: "" };
         setSaving(key);
         try {
@@ -555,12 +555,12 @@ export default function ReportPage() {
                             {groupedIds.map((lid, gIdx) => {
                                 const group = filteredRows.filter(r => r.leaseContractId === lid);
                                 return group.map((row, rIdx) => {
-                                    const key = `${row.leaseContractId}-${row.stampDutyRow}`;
+                                    const key = `${row.leaseContractId}-${row.stampDutyRow}-${row.utilityPaymentRow}`;
                                     const edit = edits[key] ?? { rentExpense: "", due: "0", prepaid: "0", additionalExpense: "0", entryDay: "" };
-                                    const sn = row.stampDutyRow ? "" : `${gIdx + 1}`;
+                                    const sn = row.stampDutyRow || row.utilityPaymentRow ? "" : `${gIdx + 1}`;
                                     return (
                                         <tr key={key}
-                                            className={`${row.stampDutyRow ? "stamp-duty-row" : ""} ${row.firstMonth ? "first-month-row" : ""}`}>
+                                            className={`${row.stampDutyRow ? "stamp-duty-row" : ""} ${row.utilityPaymentRow ? "utility-payment-row" : ""} ${row.firstMonth ? "first-month-row" : ""}`}>
                                             <td>{sn}</td>
                                             <td>{row.boxFileNo || "—"}</td>
                                             <td>
@@ -571,6 +571,7 @@ export default function ReportPage() {
                                             <td style={{ fontWeight: 600 }}>
                                                 {row.branchName}
                                                 {row.stampDutyRow && <span className="badge badge-yellow" style={{ marginLeft: 6 }}>Stamp Duty</span>}
+                                                {row.utilityPaymentRow && <span className="badge badge-blue" style={{ marginLeft: 6 }}>Utility Payment</span>}
                                                 {row.firstMonth && <span className="badge badge-green" style={{ marginLeft: 6 }}>Pro-Rated</span>}
                                             </td>
                                             <td><span className="badge badge-blue">{row.branchCode}</span></td>
@@ -600,9 +601,9 @@ export default function ReportPage() {
                                                     value={edit.rentExpense}
                                                     onChange={e => handleEdit(key, "rentExpense", e.target.value)} />
                                             </td>
-                                            {/* Total = office + stamp duty (shown on SD row only) */}
+                                            {/* Stamp duty shows office + stamp duty; utility shows its own expense. */}
                                             <td className="number" style={{ fontWeight: 700 }}>
-                                                {row.stampDutyRow && row.total != null ? fmt(row.total) : ""}
+                                                {row.total != null ? fmt(row.total) : ""}
                                             </td>
 
                                             {/* ✏️ Editable: Due for Month */}
@@ -677,9 +678,9 @@ export default function ReportPage() {
 
                                             <td>
                                                 <button className="btn btn-success btn-sm"
-                                                    disabled={saving === key}
+                                                    disabled={row.utilityPaymentRow || saving === key}
                                                     onClick={() => handleSave(row)}>
-                                                    {saving === key ? "⏳" : "💾 Save"}
+                                                    {row.utilityPaymentRow ? "—" : saving === key ? "⏳" : "💾 Save"}
                                                 </button>
                                             </td>
                                         </tr>

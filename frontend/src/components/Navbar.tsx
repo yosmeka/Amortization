@@ -66,12 +66,12 @@ export default function Navbar() {
                         📊 Bulk Upload
                     </Link>
                 ) : null}
-                {role === "CHECKER" ? (
+                {role === "CHECKER"||role==="MAKER" ? (
                     <Link href="/report" className={path === "/report" ? "active" : ""}>
                         Monthly Report
                     </Link>
                 ) : null}
-                {role === "CHECKER" ? (
+                {role === "CHECKER"||role==="MAKER" ? (
                     <Link href="/gl-report" className={path === "/gl-report" ? "active" : ""}>
                         📋 GL Ticket
                     </Link>

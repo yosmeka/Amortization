@@ -48,6 +48,7 @@ public class RenewalPrefillDto {
 
     // === Has stamp duty? ===
     private boolean hasStampDuty;
+    private boolean hasUtilityPayment;
 
     // === Stamp duty ending balance ===
     private BigDecimal sdPreviousEndingOutstandingBalance;

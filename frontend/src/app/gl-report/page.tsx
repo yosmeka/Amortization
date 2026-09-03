@@ -14,6 +14,7 @@ function fmt(n: number | null | undefined) {
 }
 
 const GL_OFFICE_RENT  = "502149";
+const GL_UTILITY      = "502149";
 const GL_PREPAID      = "104401";
 const GL_AP_MISC      = "208130";
 const ZEMEN_CODE      = "000";
@@ -42,8 +43,10 @@ type Ticket = {
 
 function buildATM(rows: AmortizationReportRow[], month: number, year: number): Ticket {
     const lbl = `${MONTHS[month - 1]} ${year}`;
-    const office = rows.filter(r => !r.stampDutyRow);
+    const office = rows.filter(r => !r.stampDutyRow && !r.utilityPaymentRow);
+    const utility = rows.filter(r => r.utilityPaymentRow);
     const totalExp     = office.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
+    const utilityTotal = utility.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
     const totalDue     = office.reduce((s, r) => s + (r.dueForMonth         ?? 0), 0);
     const totalPrepaid = totalExp - totalDue;
 
@@ -51,12 +54,19 @@ function buildATM(rows: AmortizationReportRow[], month: number, year: number): T
     
     return {
         title: "ATM Rent Schedule Ticket",
-        debit: [{
+        debit: [
+            {
             branchCode: ATM_CODE, branchName: ATM_NAME,
             glNumber: GL_OFFICE_RENT, description: "Office Rent", amount: totalExp,
             inRespectOf: `ATM Space Rent for the Month of ${lbl}.`,
-        }],
-        debitTotal: totalExp,
+            },
+            ...utility.map(r => ({
+                branchCode: r.branchCode, branchName: r.branchName,
+                glNumber: GL_UTILITY, description: "Utility Payment", amount: r.rentExpenseForMonth ?? 0,
+                inRespectOf: `Utility payment for ${r.branchName} for the month of ${lbl}.`,
+            })),
+        ],
+        debitTotal: totalExp + utilityTotal,
         credit: [
             {
                 branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
@@ -68,8 +78,13 @@ function buildATM(rows: AmortizationReportRow[], month: number, year: number): T
                 glNumber: GL_PREPAID, description: "Prepaid-Office Rent", amount: totalPrepaid,
                 inRespectOf: `ATM Space Rent for the Month of ${lbl}.`,
             },
+            {
+                branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
+                glNumber: GL_AP_MISC, description: "Account Payable-Miscellaneous", amount: utilityTotal,
+                inRespectOf: `Utility payment payable for the month of ${lbl}.`,
+            },
         ],
-        creditTotal: totalDue + totalPrepaid,
+        creditTotal: totalDue + totalPrepaid + utilityTotal,
     };
 }
 
@@ -89,11 +104,14 @@ function buildCityOutline(rows: AmortizationReportRow[], month: number, year: nu
 
     contracts.forEach(group => {
         const sdRow     = group.find(r => r.stampDutyRow);
-        const officeRow = group.find(r => !r.stampDutyRow);
+        const officeRow = group.find(r => !r.stampDutyRow && !r.utilityPaymentRow);
+        const utilityRows = group.filter(r => r.utilityPaymentRow);
         const amount    = sdRow?.total ?? officeRow?.rentExpenseForMonth ?? 0;
         const due       = group.reduce((s, r) => s + (r.dueForMonth       ?? 0), 0);
+        const utilityAmount = utilityRows.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
 
         totalExp     += amount;
+        totalExp     += utilityAmount;
         totalDue     += due;
 
         if (officeRow) {
@@ -103,6 +121,11 @@ function buildCityOutline(rows: AmortizationReportRow[], month: number, year: nu
                 inRespectOf: `Office rent and stamp duty expense of ${officeRow.branchName} for the month of ${lbl}.`,
             });
         }
+        utilityRows.forEach(r => debit.push({
+            branchCode: r.branchCode, branchName: r.branchName,
+            glNumber: GL_UTILITY, description: "Utility Payment", amount: r.rentExpenseForMonth ?? 0,
+            inRespectOf: `Utility payment for ${r.branchName} for the month of ${lbl}.`,
+        }));
     });
 
     const totalPrepaid = totalExp - totalDue;

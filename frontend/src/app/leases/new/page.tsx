@@ -17,11 +17,19 @@ const EMPTY_FORM: LeaseContractRequest = {
     accountNumber: "", taxCategory: "VAT",
     contractStartDate: "", contractEndDate: "", paymentPaidToDate: "",
     prepaymentTill: "", meterSquare: 0, meterSquarePriceBeforeVat: 0,
-    vatRate: 0.15, utilityPayment: 0, paymentModality: "monthly",
+    vatRate: 0.15, utilityPayment: 0, utilityPaymentFullPayment: 0, paymentModality: "monthly",
     discountRate: "15%", ownerName: "", initialOutstandingBalance: 0,
     initialOutstandingBalanceMonth: new Date().getMonth() + 1,
     initialOutstandingBalanceYear: new Date().getFullYear(),
     hasStampDuty: false,
+    hasUtilityPayment: false,
+    utilityPaymentDetails: {
+        meterSquare: 0, meterSquarePriceBeforeVat: 0,
+        vatRate: 0.15, utilityPayment: 0, utilityPaymentFullPayment: 0, initialOutstandingBalance: 0,
+        initialOutstandingBalanceMonth: new Date().getMonth() + 1,
+        initialOutstandingBalanceYear: new Date().getFullYear(),
+        paymentPaidToDate: "",
+    },
     stampDuty: {
         meterSquare: 0, meterSquarePriceBeforeVat: 0,
         vatRate: 0.15, utilityPayment: 0, initialOutstandingBalance: 0,
@@ -103,8 +111,12 @@ function NewLeasePageInner() {
                     meterSquarePriceBeforeVat: isExtend ? (data.meterSquarePriceBeforeVat ?? prev.meterSquarePriceBeforeVat) : prev.meterSquarePriceBeforeVat,
                     vatRate: isExtend ? (data.vatRate ?? prev.vatRate) : prev.vatRate,
                     utilityPayment: isExtend ? (data.utilityPayment ?? prev.utilityPayment) : prev.utilityPayment,
+                    utilityPaymentFullPayment: isExtend
+                        ? (data.utilityPaymentFullPayment ?? prev.utilityPaymentFullPayment)
+                        : prev.utilityPaymentFullPayment,
                     // Stamp duty
                     hasStampDuty: data.hasStampDuty,
+                    hasUtilityPayment: data.hasUtilityPayment ?? false,
                     previousContractId: data.previousContractId,
                     stampDuty: data.hasStampDuty ? {
                         ...prev.stampDuty!,
@@ -131,6 +143,15 @@ function NewLeasePageInner() {
     const setSD = (field: string, value: unknown) =>
         setForm(prev => ({ ...prev, stampDuty: { ...prev.stampDuty!, [field]: value } }));
 
+    const setUtility = (field: string, value: unknown) =>
+        setForm(prev => ({
+            ...prev,
+            utilityPayment: field === "utilityPayment" ? value as number : prev.utilityPayment,
+            utilityPaymentFullPayment: field === "utilityPaymentFullPayment"
+                ? value as number : prev.utilityPaymentFullPayment,
+            utilityPaymentDetails: { ...prev.utilityPaymentDetails!, [field]: value },
+        }));
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true); setAlert(null);
@@ -154,7 +175,7 @@ function NewLeasePageInner() {
                     ? "Extending an existing contract period. Contract end date and pricing are kept the same. Start date is computed from the previous paid-to-date."
                     : renewFromId
                     ? "Adding a new period for an existing contract. Branch and lessor info is pre-filled. Enter new dates and pricing."
-                    : "Fill in all sections. If the office has a stamp duty component, enable it at the bottom."
+                    : "Fill in all sections. Enable the applicable stamp duty or utility payment component below."
                 }</p>
             </div>
 
@@ -321,12 +342,6 @@ function NewLeasePageInner() {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Utility / Service Charge</label>
-                        <input type="number" step="0.01" className="form-control"
-                            value={form.utilityPayment || ""}
-                            onChange={e => set("utilityPayment", parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div className="form-group">
                         <label>Payment Modality</label>
                         <select className="form-control" value={form.paymentModality}
                             onChange={e => set("paymentModality", e.target.value)}>
@@ -380,6 +395,87 @@ function NewLeasePageInner() {
 
                 {/* Live preview */}
                 <LivePreview form={form} />
+            </div>
+
+            <div className="card">
+                <div className="card-title">⚡ Utility Payment</div>
+                <label className="checkbox-toggle" style={{ marginBottom: "0.75rem" }}>
+                    <input type="checkbox" checked={form.hasUtilityPayment}
+                        onChange={e => set("hasUtilityPayment", e.target.checked)} />
+                    This office rent contract includes a standalone utility payment
+                </label>
+                {form.hasUtilityPayment && (
+                    <div className="stamp-duty-section" style={{ background: "#eff6ff", borderColor: "#93c5fd" }}>
+                        <div className="card-title" style={{ color: "#075985" }}>📄 Utility Payment Details</div>
+                        <p style={{ fontSize: "0.82rem", color: "#0369a1", margin: "0 0 1rem" }}>
+                            Utility payment will appear as a separate row in the monthly report and GL ticket.
+                        </p>
+                        <div className="form-grid">
+                            <div className="form-group">
+                                <label>Meter Square (m²) *</label>
+                                <input type="number" step="0.01" className="form-control" required
+                                    value={form.utilityPaymentDetails?.meterSquare || ""}
+                                    onChange={e => setUtility("meterSquare", parseFloat(e.target.value) || 0)} />
+                            </div>
+                            <div className="form-group">
+                                <label>Price per m² (Before VAT) *</label>
+                                <input type="number" step="0.01" className="form-control" required
+                                    value={form.utilityPaymentDetails?.meterSquarePriceBeforeVat || ""}
+                                    onChange={e => setUtility("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
+                            </div>
+                            <div className="form-group">
+                                <label>Utility VAT Rate</label>
+                                <select className="form-control" value={form.utilityPaymentDetails?.vatRate}
+                                    onChange={e => setUtility("vatRate", parseFloat(e.target.value))}>
+                                    <option value={0.15}>15%</option>
+                                    <option value={0.10}>10%</option>
+                                    <option value={0.07}>7%</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Monthly Utility Payment *</label>
+                                <input type="number" step="0.01" className="form-control" required
+                                    value={form.utilityPaymentDetails?.utilityPayment || ""}
+                                    onChange={e => setUtility("utilityPayment", parseFloat(e.target.value) || 0)} />
+                            </div>
+                                    <div className="form-group">
+                                    <label>Full Payment / Total Contract Payment (Utility) *</label>
+                                    <input type="number" step="0.01" className="form-control" required
+                                        value={form.utilityPaymentFullPayment || ""}
+                                        onChange={e => setUtility("utilityPaymentFullPayment", parseFloat(e.target.value) || 0)} />
+                                    </div>
+                            <div className="form-group">
+                                <label>Payment Paid to Date</label>
+                                <input type="date" className="form-control"
+                                    value={form.utilityPaymentDetails?.paymentPaidToDate || ""}
+                                    onChange={e => setUtility("paymentPaidToDate", e.target.value)} />
+                            </div>
+                            <div className="form-group" style={{ gridColumn: "span 2" }}>
+                                <label style={{ color: "#075985", fontWeight: 700 }}>
+                                    Initial Outstanding Balance (Utility Payment)
+                                </label>
+                                <input type="number" step="0.01" className="form-control"
+                                    value={form.utilityPaymentDetails?.initialOutstandingBalance || ""}
+                                    onChange={e => setUtility("initialOutstandingBalance", parseFloat(e.target.value) || 0)}
+                                    placeholder="Balance amount" />
+                            </div>
+                            <div className="form-group">
+                                <label>Balance Month</label>
+                                <select className="form-control" value={form.utilityPaymentDetails?.initialOutstandingBalanceMonth ?? ""}
+                                    onChange={e => setUtility("initialOutstandingBalanceMonth", parseInt(e.target.value))}>
+                                    {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Balance Year</label>
+                                <select className="form-control" value={form.utilityPaymentDetails?.initialOutstandingBalanceYear ?? ""}
+                                    onChange={e => setUtility("initialOutstandingBalanceYear", parseInt(e.target.value))}>
+                                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ─── SECTION 4: Stamp Duty (conditional) ─── */}

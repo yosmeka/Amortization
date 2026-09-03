@@ -36,7 +36,7 @@ export default function Home() {
       title: "Monthly Report",
       desc: "Generate report",
       color: "#059669",
-      roles: ["CHECKER"],
+      roles: ["CHECKER", "MAKER"], // ✅ fixed
     },
   ];
 

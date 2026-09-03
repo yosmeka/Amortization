@@ -49,6 +49,7 @@ export interface LeaseContractRequest {
     meterSquarePriceBeforeVat: number;
     vatRate?: number;
     utilityPayment?: number;
+    utilityPaymentFullPayment?: number;
     paymentModality?: string;
     discountRate?: string;
     ownerName: string;
@@ -57,6 +58,18 @@ export interface LeaseContractRequest {
     initialOutstandingBalanceMonth?: number;
     initialOutstandingBalanceYear?: number;
     hasStampDuty: boolean;
+    hasUtilityPayment: boolean;
+    utilityPaymentDetails?: {
+        meterSquare: number;
+        meterSquarePriceBeforeVat: number;
+        vatRate?: number;
+        utilityPayment?: number;
+        utilityPaymentFullPayment?: number;
+        initialOutstandingBalance?: number;
+        initialOutstandingBalanceMonth?: number;
+        initialOutstandingBalanceYear?: number;
+        paymentPaidToDate?: string;
+    };
     /** ID of the previous period's contract if this is a renewal. */
     previousContractId?: number;
     stampDuty?: {
@@ -77,6 +90,7 @@ export interface LeaseContractRequest {
 export interface AmortizationReportRow {
     leaseContractId: number;
     stampDutyRow: boolean;
+    utilityPaymentRow: boolean;
     branchName: string;
     boxFileNo?: string;
 
@@ -262,6 +276,7 @@ export interface RenewalPrefill {
     previousEndingMonth?: number;
     previousEndingYear?: number;
     hasStampDuty: boolean;
+    hasUtilityPayment: boolean;
     sdPreviousEndingOutstandingBalance?: number;
     sdPreviousEndingMonth?: number;
     sdPreviousEndingYear?: number;
@@ -271,6 +286,7 @@ export interface RenewalPrefill {
     meterSquarePriceBeforeVat?: number;
     vatRate?: number;
     utilityPayment?: number;
+    utilityPaymentFullPayment?: number;
     sdMeterSquare?: number;
     sdMeterSquarePriceBeforeVat?: number;
     sdVatRate?: number;
