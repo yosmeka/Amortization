@@ -44,6 +44,8 @@ export interface LeaseContractRequest {
     contractStartDate: string;   // ISO yyyy-MM-dd
     contractEndDate: string;
     paymentPaidToDate?: string;
+    utilityContractStartDate?: string;
+    utilityContractEndDate?: string;
     prepaymentTill?: string;
     meterSquare: number;
     meterSquarePriceBeforeVat: number;
@@ -57,6 +59,9 @@ export interface LeaseContractRequest {
     /** Month (1-12) and year of the outstanding balance anchor. Null = contract start. */
     initialOutstandingBalanceMonth?: number;
     initialOutstandingBalanceYear?: number;
+    utilityInitialOutstandingBalance?: number;
+    utilityInitialOutstandingBalanceMonth?: number;
+    utilityInitialOutstandingBalanceYear?: number;
     hasStampDuty: boolean;
     hasUtilityPayment: boolean;
     utilityPaymentDetails?: {
@@ -338,12 +343,13 @@ export interface PrepaidSuggestionResponse {
     filledAmount?: number;
 }
 
-export async function fetchPrepaidSuggestion(leaseId: number, month: number, year: number, isStampDuty: boolean): Promise<PrepaidSuggestionResponse> {
+export async function fetchPrepaidSuggestion(leaseId: number, month: number, year: number, isStampDuty: boolean, isUtility = false): Promise<PrepaidSuggestionResponse> {
     const params = new URLSearchParams({
         leaseId: String(leaseId),
         month: String(month),
         year: String(year),
-        stampDuty: String(isStampDuty)
+        stampDuty: String(isStampDuty),
+        utility: String(isUtility)
     });
     const res = await fetch(`${API_BASE}/amortization/prepaid-suggestion?${params}`, {
         headers: getAuthHeaders(),
@@ -354,11 +360,12 @@ export async function fetchPrepaidSuggestion(leaseId: number, month: number, yea
 export async function saveEntry(
     leaseId: number,
     isStampDuty: boolean,
+    isUtility: boolean,
     month: number,
     year: number,
     opts: {
         rentExpenseForMonth?: number | null;  // null = auto-calculate
-        dueForMonth?: number;
+        dueForMonth?: number | null;
         prepaidOfficeRent?: number;
         additionalExpense?: number;
         entryDay?: number | null;
@@ -370,10 +377,11 @@ export async function saveEntry(
         body: JSON.stringify({
             leaseId,
             stampDuty: isStampDuty,
+            utility: isUtility,
             month,
             year,
             rentExpenseForMonth: opts.rentExpenseForMonth ?? null,
-            dueForMonth: opts.dueForMonth ?? 0,
+            dueForMonth: opts.dueForMonth ?? null,
             prepaidOfficeRent: opts.prepaidOfficeRent ?? 0,
             additionalExpense: opts.additionalExpense ?? 0,
             entryDay: opts.entryDay ?? null,

@@ -45,6 +45,7 @@ public class AmortizationController {
         AmortizationEntry saved = amortizationService.saveEntry(
                 req.getLeaseId(),
                 req.isStampDuty(),
+                req.isUtility(),
                 req.getMonth(),
                 req.getYear(),
                 req.getRentExpenseForMonth(),
@@ -66,15 +67,17 @@ public class AmortizationController {
         @RequestParam Long leaseId,
         @RequestParam int month,
         @RequestParam int year,
-        @RequestParam(required = false, defaultValue = "false") boolean stampDuty) {
+        @RequestParam(required = false, defaultValue = "false") boolean stampDuty,
+        @RequestParam(required = false, defaultValue = "false") boolean utility) {
 
-    return amortizationService.calculatePrepaidSuggestion(leaseId, stampDuty, month, year);
+    return amortizationService.calculatePrepaidSuggestion(leaseId, stampDuty, utility, month, year);
 }
 
     @Data
     public static class EntryRequest {
         private Long leaseId;
         private boolean stampDuty;
+        private boolean utility;
         private int month;
         private int year;
         /** Null = auto-calculate; non-null = override rent expense */

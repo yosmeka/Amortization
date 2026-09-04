@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "amortization_entries",
        uniqueConstraints = {
-           @UniqueConstraint(columnNames = {"lease_contract_id", "is_stamp_duty", "report_month", "report_year"})
+           @UniqueConstraint(columnNames = {"lease_contract_id", "is_stamp_duty", "is_utility", "report_month", "report_year"})
        })
 @Getter
 @Setter
@@ -39,6 +39,10 @@ public class AmortizationEntry {
     @Column(name = "is_stamp_duty", nullable = false)
     @Builder.Default
     private boolean stampDuty = false;
+
+    @Column(name = "is_utility", nullable = false)
+    @Builder.Default
+    private boolean utility = false;
 
     @Column(name = "report_month", nullable = false)
     private int reportMonth;  // 1..12

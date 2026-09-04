@@ -14,8 +14,23 @@ public interface AmortizationEntryRepository extends JpaRepository<AmortizationE
 
     List<AmortizationEntry> findByReportMonthAndReportYear(int month, int year);
 
-    Optional<AmortizationEntry> findByLeaseContractIdAndStampDutyFalseAndReportMonthAndReportYear(
+        Optional<AmortizationEntry> findByLeaseContractIdAndStampDutyFalseAndUtilityFalseAndReportMonthAndReportYear(
             Long leaseContractId, int month, int year);
+
+    Optional<AmortizationEntry> findByLeaseContractIdAndStampDutyFalseAndUtilityTrueAndReportMonthAndReportYear(
+            Long leaseContractId, int month, int year);
+
+    @Query("SELECT e FROM AmortizationEntry e WHERE e.leaseContract.id = :leaseId AND e.stampDuty = false AND e.utility = true " +
+           "AND (e.reportYear < :year OR (e.reportYear = :year AND e.reportMonth <= :month)) " +
+           "ORDER BY e.reportYear DESC, e.reportMonth DESC")
+    List<AmortizationEntry> findLatestUtilityEntryAtOrBefore(@Param("leaseId") Long leaseId,
+            @Param("year") int year, @Param("month") int month);
+
+    @Query("SELECT e FROM AmortizationEntry e WHERE e.leaseContract.id = :leaseId AND e.stampDuty = false AND e.utility = true " +
+           "AND (e.reportYear < :year OR (e.reportYear = :year AND e.reportMonth < :month)) " +
+           "ORDER BY e.reportYear DESC, e.reportMonth DESC")
+    List<AmortizationEntry> findLatestUtilityEntryBefore(@Param("leaseId") Long leaseId,
+            @Param("year") int year, @Param("month") int month);
 
     Optional<AmortizationEntry> findByStampDutyContractIdAndStampDutyTrueAndReportMonthAndReportYear(
             Long stampDutyContractId, int month, int year);
@@ -29,6 +44,7 @@ public interface AmortizationEntryRepository extends JpaRepository<AmortizationE
     @Query("SELECT e FROM AmortizationEntry e " +
            "WHERE e.leaseContract.id = :leaseId " +
            "AND e.stampDuty = false " +
+           "AND e.utility = false " +
            "AND (e.reportYear < :year OR (e.reportYear = :year AND e.reportMonth <= :month)) " +
            "ORDER BY e.reportYear DESC, e.reportMonth DESC")
     List<AmortizationEntry> findLatestOfficeEntryAtOrBefore(
@@ -65,6 +81,7 @@ public interface AmortizationEntryRepository extends JpaRepository<AmortizationE
     @Query("SELECT e FROM AmortizationEntry e " +
            "WHERE e.leaseContract.id = :leaseId " +
            "AND e.stampDuty = false " +
+           "AND e.utility = false " +
            "AND e.prepaidOfficeRent > 0 " +
            "AND (e.reportYear < :year OR (e.reportYear = :year AND e.reportMonth <= :month)) " +
            "ORDER BY e.reportYear ASC, e.reportMonth ASC")
@@ -72,6 +89,14 @@ public interface AmortizationEntryRepository extends JpaRepository<AmortizationE
             @Param("leaseId") Long leaseId,
             @Param("year") int year,
             @Param("month") int month);
+
+    @Query("SELECT e FROM AmortizationEntry e " +
+            "WHERE e.leaseContract.id = :leaseId " +
+            "AND e.stampDuty = false " +
+            "AND e.utility = true " +
+            "AND e.prepaidOfficeRent > 0 " +
+            "ORDER BY e.reportYear ASC, e.reportMonth ASC")
+    List<AmortizationEntry> findFirstPrepaidUtilityEntry(@Param("leaseId") Long leaseId);
 
     /**
      * Returns the FIRST saved SD entry where prepaidOfficeRent > 0

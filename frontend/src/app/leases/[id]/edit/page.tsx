@@ -16,6 +16,10 @@ const EMPTY_FORM: LeaseContractRequest = {
     tinNumber: "", contactInfo1: "", contactInfo2: "", contactInfo3: "",
     accountNumber: "", taxCategory: "VAT",
     contractStartDate: "", contractEndDate: "", paymentPaidToDate: "",
+    utilityContractStartDate: "", utilityContractEndDate: "",
+    utilityInitialOutstandingBalance: 0,
+    utilityInitialOutstandingBalanceMonth: new Date().getMonth() + 1,
+    utilityInitialOutstandingBalanceYear: new Date().getFullYear(),
     prepaymentTill: "", meterSquare: 0, meterSquarePriceBeforeVat: 0,
     vatRate: 0.15, utilityPayment: 0, utilityPaymentFullPayment: 0, paymentModality: "monthly",
     discountRate: "15%", ownerName: "", initialOutstandingBalance: 0,
@@ -59,6 +63,11 @@ function toForm(data: any): LeaseContractRequest {
         contractStartDate: data.contractStartDate ?? "",
         contractEndDate: data.contractEndDate ?? "",
         paymentPaidToDate: data.paymentPaidToDate ?? "",
+        utilityContractStartDate: data.utilityContractStartDate ?? "",
+        utilityContractEndDate: data.utilityContractEndDate ?? "",
+        utilityInitialOutstandingBalance: data.utilityInitialOutstandingBalance ?? 0,
+        utilityInitialOutstandingBalanceMonth: data.utilityInitialOutstandingBalanceMonth ?? (new Date().getMonth() + 1),
+        utilityInitialOutstandingBalanceYear: data.utilityInitialOutstandingBalanceYear ?? new Date().getFullYear(),
         prepaymentTill: data.prepaymentTill ?? "",
         meterSquare: data.meterSquare ?? 0,
         meterSquarePriceBeforeVat: data.meterSquarePriceBeforeVat ?? 0,
@@ -128,6 +137,16 @@ function EditLeasePageInner() {
     const setUtility = (field: string, value: unknown) =>
         setForm(prev => ({
             ...prev,
+            utilityContractStartDate: field === "utilityContractStartDate"
+                ? value as string : prev.utilityContractStartDate,
+            utilityContractEndDate: field === "utilityContractEndDate"
+                ? value as string : prev.utilityContractEndDate,
+            utilityInitialOutstandingBalance: field === "utilityInitialOutstandingBalance"
+                ? value as number : prev.utilityInitialOutstandingBalance,
+            utilityInitialOutstandingBalanceMonth: field === "utilityInitialOutstandingBalanceMonth"
+                ? value as number : prev.utilityInitialOutstandingBalanceMonth,
+            utilityInitialOutstandingBalanceYear: field === "utilityInitialOutstandingBalanceYear"
+                ? value as number : prev.utilityInitialOutstandingBalanceYear,
             utilityPayment: field === "utilityPayment" ? value as number : prev.utilityPayment,
             utilityPaymentFullPayment: field === "utilityPaymentFullPayment"
                 ? value as number : prev.utilityPaymentFullPayment,
@@ -305,61 +324,38 @@ function EditLeasePageInner() {
                 {form.hasUtilityPayment && (
                     <div className="form-grid">
                         <div className="form-group">
-                            <label>Meter Square (m²) *</label>
-                            <input type="number" step="0.01" className="form-control" required
-                                value={form.utilityPaymentDetails?.meterSquare || ""}
-                                onChange={e => setUtility("meterSquare", parseFloat(e.target.value) || 0)} />
+                            <label>Utility Contract Start Date *</label>
+                            <input type="date" className="form-control" required value={form.utilityContractStartDate}
+                                onChange={e => setUtility("utilityContractStartDate", e.target.value)} />
                         </div>
                         <div className="form-group">
-                            <label>Price per m² (Before VAT) *</label>
-                            <input type="number" step="0.01" className="form-control" required
-                                value={form.utilityPaymentDetails?.meterSquarePriceBeforeVat || ""}
-                                onChange={e => setUtility("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
+                            <label>Utility Contract End Date *</label>
+                            <input type="date" className="form-control" required value={form.utilityContractEndDate}
+                                onChange={e => setUtility("utilityContractEndDate", e.target.value)} />
                         </div>
                         <div className="form-group">
-                            <label>Utility VAT Rate</label>
-                            <select className="form-control" value={form.utilityPaymentDetails?.vatRate}
-                                onChange={e => setUtility("vatRate", parseFloat(e.target.value))}>
-                                <option value={0.15}>15%</option>
-                                <option value={0.10}>10%</option>
-                                <option value={0.07}>7%</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Monthly Utility Payment *</label>
+                            <label>Full Payment / Total Contract Payment (Utility) *</label>
                             <input type="number" step="0.01" className="form-control" required
-                                value={form.utilityPaymentDetails?.utilityPayment || ""}
-                                onChange={e => setUtility("utilityPayment", parseFloat(e.target.value) || 0)} />
-                        </div>
-                            <div className="form-group">
-                                <label>Full Payment / Total Contract Payment (Utility) *</label>
-                                <input type="number" step="0.01" className="form-control" required
                                 value={form.utilityPaymentFullPayment || ""}
                                 onChange={e => setUtility("utilityPaymentFullPayment", parseFloat(e.target.value) || 0)} />
-                            </div>
-                        <div className="form-group">
-                            <label>Payment Paid to Date</label>
-                            <input type="date" className="form-control"
-                                value={form.utilityPaymentDetails?.paymentPaidToDate || ""}
-                                onChange={e => setUtility("paymentPaidToDate", e.target.value)} />
                         </div>
                         <div className="form-group">
                             <label>Initial Outstanding Balance</label>
                             <input type="number" step="0.01" className="form-control"
-                                value={form.utilityPaymentDetails?.initialOutstandingBalance || ""}
-                                onChange={e => setUtility("initialOutstandingBalance", parseFloat(e.target.value) || 0)} />
+                                value={form.utilityInitialOutstandingBalance || ""}
+                                onChange={e => setUtility("utilityInitialOutstandingBalance", parseFloat(e.target.value) || 0)} />
                         </div>
                         <div className="form-group">
                             <label>Balance Month</label>
-                            <select className="form-control" value={form.utilityPaymentDetails?.initialOutstandingBalanceMonth ?? ""}
-                                onChange={e => setUtility("initialOutstandingBalanceMonth", parseInt(e.target.value))}>
+                            <select className="form-control" value={form.utilityInitialOutstandingBalanceMonth ?? ""}
+                                onChange={e => setUtility("utilityInitialOutstandingBalanceMonth", parseInt(e.target.value))}>
                                 {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                             </select>
                         </div>
                         <div className="form-group">
                             <label>Balance Year</label>
-                            <select className="form-control" value={form.utilityPaymentDetails?.initialOutstandingBalanceYear ?? ""}
-                                onChange={e => setUtility("initialOutstandingBalanceYear", parseInt(e.target.value))}>
+                            <select className="form-control" value={form.utilityInitialOutstandingBalanceYear ?? ""}
+                                onChange={e => setUtility("utilityInitialOutstandingBalanceYear", parseInt(e.target.value))}>
                                 {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
                         </div>

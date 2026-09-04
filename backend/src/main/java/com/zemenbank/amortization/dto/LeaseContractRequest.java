@@ -43,6 +43,12 @@ public class LeaseContractRequest {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate paymentPaidToDate;
 
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate utilityContractStartDate;
+
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate utilityContractEndDate;
+
     private BigDecimal meterSquare;
     private BigDecimal meterSquarePriceBeforeVat;
     private BigDecimal vatRate;                  // default 0.15
@@ -58,6 +64,10 @@ public class LeaseContractRequest {
     /** Month (1-12) and year for which initialOutstandingBalance is recorded. Null = contract start. */
     private Integer initialOutstandingBalanceMonth;
     private Integer initialOutstandingBalanceYear;
+
+    private BigDecimal utilityInitialOutstandingBalance;
+    private Integer utilityInitialOutstandingBalanceMonth;
+    private Integer utilityInitialOutstandingBalanceYear;
 
     /** If this is a contract renewal, the ID of the preceding period's contract. */
     private Long previousContractId;

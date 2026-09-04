@@ -328,7 +328,24 @@ export default function ReportPage() {
     const calcPrepaid = async (row: AmortizationReportRow) => {
         const key = `${row.leaseContractId}-${row.stampDutyRow}-${row.utilityPaymentRow}`;
         try {
-            const data = await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
+            const data = row.utilityPaymentRow
+                ? await fetchPrepaidSuggestion(row.leaseContractId, month, year, false, true).then(serverData => serverData.alreadyFilled
+                    ? serverData
+                    : (() => {
+                    const start = new Date(row.contractStartDate);
+                    const monthsElapsed = (year - start.getFullYear()) * 12 + month - start.getMonth() - 1;
+                    const daysInStartMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+                    const firstExpense = row.monthlyRentWithVat * (daysInStartMonth - start.getDate() + 1) / daysInStartMonth;
+                    const priorExpense = monthsElapsed <= 0 ? 0 : firstExpense + row.monthlyRentWithVat * (monthsElapsed - 1);
+                    return {
+                        suggestedPrepaid: Math.max(0, row.fullPayment - priorExpense),
+                        alreadyFilled: false,
+                        filledMonth: undefined,
+                        filledYear: undefined,
+                        filledAmount: undefined,
+                    };
+                })())
+                : await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
 
             if (data.alreadyFilled) {
                 const monthName = MONTHS[(data.filledMonth || 1) - 1];
@@ -364,10 +381,10 @@ export default function ReportPage() {
         setSaving(key);
         try {
             await saveEntry(
-                row.leaseContractId, row.stampDutyRow, month, year,
+                row.leaseContractId, row.stampDutyRow, row.utilityPaymentRow, month, year,
                 {
                     rentExpenseForMonth: e.rentExpense !== "" ? parseFloat(e.rentExpense) : null,
-                    dueForMonth: parseFloat(e.due) || 0,
+                    dueForMonth: e.due !== "" ? parseFloat(e.due) : null,
                     prepaidOfficeRent: parseFloat(e.prepaid) || 0,
                     additionalExpense: parseFloat(e.additionalExpense) || 0,
                     entryDay: e.entryDay !== "" ? parseInt(e.entryDay) : null,
@@ -678,9 +695,9 @@ export default function ReportPage() {
 
                                             <td>
                                                 <button className="btn btn-success btn-sm"
-                                                    disabled={row.utilityPaymentRow || saving === key}
+                                                    disabled={saving === key}
                                                     onClick={() => handleSave(row)}>
-                                                    {row.utilityPaymentRow ? "—" : saving === key ? "⏳" : "💾 Save"}
+                                                    {saving === key ? "⏳" : "💾 Save"}
                                                 </button>
                                             </td>
                                         </tr>

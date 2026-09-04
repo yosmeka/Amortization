@@ -52,6 +52,10 @@ public class LeaseContract {
     // === Column 7 – Payment Paid to Date (the date up to which rent is paid/prepaid) ===
     private LocalDate paymentPaidToDate;
 
+    /** Optional utility period. Null values retain the legacy office-rent period. */
+    private LocalDate utilityContractStartDate;
+    private LocalDate utilityContractEndDate;
+
     // === Column 9 – Meter Square ===
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal meterSquare;
@@ -87,6 +91,12 @@ public class LeaseContract {
      */
     private Integer initialOutstandingBalanceMonth;
     private Integer initialOutstandingBalanceYear;
+
+    @Column(precision = 18, scale = 8)
+    @Builder.Default
+    private BigDecimal utilityInitialOutstandingBalance = BigDecimal.ZERO;
+    private Integer utilityInitialOutstandingBalanceMonth;
+    private Integer utilityInitialOutstandingBalanceYear;
 
     // === Whether this contract has a stamp duty component ===
     @Builder.Default

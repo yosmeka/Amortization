@@ -14,7 +14,7 @@ function fmt(n: number | null | undefined) {
 }
 
 const GL_OFFICE_RENT  = "502149";
-const GL_UTILITY      = "502149";
+const GL_UTILITY      = "502170";
 const GL_PREPAID      = "104401";
 const GL_AP_MISC      = "208130";
 const ZEMEN_CODE      = "000";
