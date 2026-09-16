@@ -157,8 +157,23 @@ export interface AuthResponse {
 }
 
 /* ── Helpers ── */
+export function handleUnauthorized() {
+    if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("username");
+        localStorage.removeItem("role");
+        const currentPath = window.location.pathname;
+        if (!currentPath.endsWith("/login")) {
+            window.location.href = currentPath.startsWith("/amortization") ? "/amortization/login" : "/login";
+        }
+    }
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
     if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            handleUnauthorized();
+        }
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
     }
@@ -237,7 +252,10 @@ export async function deleteLease(id: number) {
         method: "DELETE",
         headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) handleUnauthorized();
+        throw new Error(`HTTP ${res.status}`);
+    }
 }
 export async function loginUser(data: LoginRequest): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -427,7 +445,10 @@ export async function deleteUser(id: number): Promise<void> {
         method: "DELETE",
         headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) handleUnauthorized();
+        throw new Error(`HTTP ${res.status}`);
+    }
 }
 
 export async function assignBoxFileNo(leaseContractIds: number[], boxFileNo: string): Promise<void> {
@@ -437,6 +458,7 @@ export async function assignBoxFileNo(leaseContractIds: number[], boxFileNo: str
         body: JSON.stringify({ leaseContractIds, boxFileNo }),
     });
     if (!res.ok) {
+        if (res.status === 401 || res.status === 403) handleUnauthorized();
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
     }

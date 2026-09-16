@@ -2,18 +2,105 @@
 
 /* ───────────────────────────────────────────────
    Zemen Bank – Amortization System Global Styles
+   Light & Dark Theme Tokens
 ─────────────────────────────────────────────── */
 :root {
   --brand-primary: #e60000;
   --brand-secondary: #cc0000;
   --brand-accent: #ff4d4d;
-  --bg-base: #f9fafb;
+
+  /* Light Theme Surfaces */
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
   --bg-card: #ffffff;
-  --text-primary: #111827;
-  --text-muted: #6b7280;
-  --border: #e5e7eb;
+  --bg-card-subtle: #f8fafc;
+  --bg-card-hover: #f1f5f9;
+
+  /* Light Theme Typography */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  /* Light Theme Borders & Lines */
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-strong: #cbd5e1;
+
+  /* Form Controls */
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-text: #0f172a;
+  --input-placeholder: #94a3b8;
+
+  /* Tables */
+  --table-bg: #ffffff;
+  --table-header-bg: #0f172a;
+  --table-header-text: #ffffff;
+  --table-stripe: #f8fafc;
+  --table-hover: #eff6ff;
+  --table-border: #e2e8f0;
+
+  /* Modals */
+  --modal-bg: #ffffff;
+  --modal-overlay: rgba(15, 23, 42, 0.6);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1);
+
+  /* Status Colors */
   --success: #16a34a;
   --danger: #dc2626;
+  --warning: #f59e0b;
+}
+
+[data-theme="dark"] {
+  --brand-primary: #ef4444;
+  --brand-secondary: #dc2626;
+  --brand-accent: #f87171;
+
+  /* Dark Theme Surfaces */
+  --bg-base: #070b14;
+  --bg-surface: #0f172a;
+  --bg-card: #0f172a;
+  --bg-card-subtle: #131d31;
+  --bg-card-hover: #1e293b;
+
+  /* Dark Theme Typography */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+
+  /* Dark Theme Borders & Lines */
+  --border: #1e293b;
+  --border-subtle: #151f33;
+  --border-strong: #334155;
+
+  /* Form Controls */
+  --input-bg: #131d31;
+  --input-border: #334155;
+  --input-text: #f8fafc;
+  --input-placeholder: #64748b;
+
+  /* Tables */
+  --table-bg: #0f172a;
+  --table-header-bg: #090e1b;
+  --table-header-text: #f8fafc;
+  --table-stripe: #0a1120;
+  --table-hover: #162238;
+  --table-border: #1e293b;
+
+  /* Modals */
+  --modal-bg: #0f172a;
+  --modal-overlay: rgba(0, 0, 0, 0.78);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.65);
 }
 
 * {
@@ -26,6 +113,7 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   font-size: 14px;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 a {
@@ -442,4 +530,219 @@ td.highlight {
 
 tbody tr.utility-payment-row {
   background: #eff6ff;
+}
+
+/* ───────────────────────────────────────────────
+   Dark Mode Component Overrides
+─────────────────────────────────────────────── */
+[data-theme="dark"] .main-content-layout {
+  background-color: var(--bg-base) !important;
+}
+
+[data-theme="dark"] .card {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .card-title {
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .page-header {
+  border-bottom-color: var(--brand-secondary) !important;
+}
+
+[data-theme="dark"] .page-header h2 {
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .page-header p {
+  color: var(--text-muted) !important;
+}
+
+/* Headings */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4 {
+  color: var(--text-primary);
+}
+
+/* Form inputs, selects, textareas */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--input-text) !important;
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus {
+  border-color: var(--brand-accent) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+[data-theme="dark"] .form-group label {
+  color: var(--text-muted) !important;
+}
+
+/* Filter bar */
+[data-theme="dark"] .filter-bar {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+[data-theme="dark"] .filter-bar label {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .filter-bar select,
+[data-theme="dark"] .filter-bar input {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--input-text) !important;
+}
+
+/* Tables */
+[data-theme="dark"] .table-wrapper {
+  background: var(--table-bg) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] table {
+  background: var(--table-bg) !important;
+}
+
+[data-theme="dark"] thead tr {
+  background: #090e1b !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] thead th {
+  background: #090e1b !important;
+  color: #e2e8f0 !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] tbody tr {
+  background: var(--table-bg) !important;
+}
+
+[data-theme="dark"] tbody tr:nth-child(even) {
+  background: var(--table-stripe) !important;
+}
+
+[data-theme="dark"] tbody tr:hover {
+  background: var(--table-hover) !important;
+}
+
+[data-theme="dark"] td {
+  border-bottom-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] td.highlight {
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] td.editable-cell input {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--input-text) !important;
+}
+
+[data-theme="dark"] tbody tr.stamp-duty-row {
+  background: rgba(234, 179, 8, 0.12) !important;
+}
+
+[data-theme="dark"] tbody tr.stamp-duty-row:hover {
+  background: rgba(234, 179, 8, 0.2) !important;
+}
+
+[data-theme="dark"] tbody tr.utility-payment-row {
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+[data-theme="dark"] tbody tr.utility-payment-row:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Stamp Duty Section */
+[data-theme="dark"] .stamp-duty-section {
+  background: rgba(234, 179, 8, 0.08) !important;
+  border-color: #b45309 !important;
+}
+
+/* Modals */
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .theme-modal {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* GL Tickets */
+[data-theme="dark"] .gl-ticket {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+}
+
+[data-theme="dark"] .gl-ticket-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .gl-tbl th {
+  background: #151f33 !important;
+  border-color: var(--border) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .gl-tbl td {
+  border-color: var(--border) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .gl-total td {
+  background: #090e1b !important;
+  border-top-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+/* Custom modern scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }

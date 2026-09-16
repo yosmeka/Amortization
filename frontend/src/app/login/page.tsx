@@ -21,22 +21,18 @@ export default function LoginPage() {
 
         try {
             const res = await loginUser({ username, password });
-            localStorage.setItem("token", res.token);
             const role = res.role.toUpperCase();
+            const loggedUsername = res.username || username;
+
+            localStorage.setItem("token", res.token);
+            localStorage.setItem("role", role);
+            localStorage.setItem("username", loggedUsername);
 
             if (role === "ADMIN") {
                 router.push("/register");
-            } else if (role === "MAKER") {
-                router.push("/");
-            } else if (role === "CHECKER") {
-                router.push("/");
             } else {
                 router.push("/");
             }
-
-            localStorage.setItem("role", role);
-            localStorage.setItem("username", username);
-
         } catch (err: any) {
             setError(err.message || "Invalid username or password");
         } finally {

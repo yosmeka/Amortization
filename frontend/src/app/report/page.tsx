@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
 import { AmortizationReportRow, fetchReport, saveEntry, fetchPrepaidSuggestion, fetchLeases, assignBoxFileNo } from "@/lib/api";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import { exportMonthlyReportToExcel } from "@/lib/excelExport";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const MONTHS = [
@@ -92,194 +91,16 @@ export default function ReportPage() {
         }
     };
 
-    const exportToExcel = () => {
+    const exportToExcel = async () => {
         if (!rows.length) {
             alert("No data available to export.");
             return;
         }
-
-        // Prepare data rows
-        const data = rows.map((r, index) => ({
-                "S/No": r.stampDutyRow || r.utilityPaymentRow ? "" : index + 1,
-            "Box File No": r.boxFileNo || "",
-            "Category of Rent": r.categoryOfRent,
-            "Branch Name": r.branchName,
-            "Branch Code": r.branchCode,
-            "Owner Name": r.ownerName,
-            "Contract Start": fmtDate(r.contractStartDate),
-            "Contract End": fmtDate(r.contractEndDate),
-            "Total No. of Years": r.totalNumberOfYears,
-            "Payment Paid to Date": fmtDate(r.paymentPaidToDate),
-            "Year with Fraction": r.yearWithFraction,
-            "Meter Square": r.meterSquare,
-            "Price/m² Before VAT": r.meterSquarePriceBeforeVat,
-            "VAT Rate": r.vatRate != null ? (r.vatRate * 100) + "%" : "—",
-            "Price/m² After VAT": r.meterSquarePriceAfterVat,
-            "Monthly Rent with VAT": r.monthlyRentWithVat,
-            "Total Annual Rent": r.totalAnnualRentAmount,
-            "Utility / Service Charge": r.utilityPayment,
-            "Full Payment": r.fullPayment,
-            "Total Payment Paid": r.totalPaymentPaidToDate,
-            "Remaining Payment": r.remainingPayment,
-            "Outstanding Balance (Prev)": r.outstandingBalancePriorMonth,
-            "Rent Expense": r.rentExpenseForMonth,
-            "Due": r.dueForMonth,
-            "Rent Expense − Due": r.rentMinusDue,
-            "Reent Expense As Of": r.rentExpenseAsOf,
-            "Due Difference As Of": r.dueDifferenceAsOf,
-            "Prepaid": r.prepaidOfficeRent,
-            "Additional Expense": r.additionalExpense,
-            "Day": r.entryDay,
-            "Outstanding End": r.outstandingBalanceEndOfMonth
-        }));
-
-        // Add total row
-        const totalRow = {
-            "S/No": "TOTAL",
-            "Box File No": "",
-            "Category of Rent": "",
-            "Branch Name": "",
-            "Branch Code": "",
-            "Owner Name": "",
-            "Contract Start": "",
-            "Contract End": "",
-            "Total No. of Years": 0,
-            "Payment Paid to Date": "",
-            "Year with Fraction": 0,
-            "Meter Square": rows.reduce((sum, r) => sum + (r.meterSquare || 0), 0),
-            "Price/m² Before VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceBeforeVat || 0), 0),
-            "VAT Rate": "",
-            "Price/m² After VAT": rows.reduce((sum, r) => sum + (r.meterSquarePriceAfterVat || 0), 0),
-            "Monthly Rent with VAT": rows.reduce((sum, r) => sum + (r.monthlyRentWithVat || 0), 0),
-            "Total Annual Rent": rows.reduce((sum, r) => sum + (r.totalAnnualRentAmount || 0), 0),
-            "Utility / Service Charge": rows.reduce((sum, r) => sum + (r.utilityPayment || 0), 0),
-            "Full Payment": rows.reduce((sum, r) => sum + (r.fullPayment || 0), 0),
-            "Total Payment Paid": rows.reduce((sum, r) => sum + (r.totalPaymentPaidToDate || 0), 0),
-            "Remaining Payment": rows.reduce((sum, r) => sum + (r.remainingPayment || 0), 0),
-            "Outstanding Balance (Prev)": rows.reduce((sum, r) => sum + (r.outstandingBalancePriorMonth || 0), 0),
-            "Rent Expense": rows.reduce((sum, r) => sum + (r.rentExpenseForMonth || 0), 0),
-            "Due": rows.reduce((sum, r) => sum + (r.dueForMonth || 0), 0),
-            "Rent Expense − Due": 0,
-            "Reent Expense As Of": 0,
-            "Due Difference As Of": 0,
-            "Prepaid": rows.reduce((sum, r) => sum + (r.prepaidOfficeRent || 0), 0),
-            "Additional Expense": rows.reduce((sum, r) => sum + (r.additionalExpense || 0), 0),
-            "Day": 0,
-            "Outstanding End": rows.reduce((sum, r) => sum + (r.outstandingBalanceEndOfMonth || 0), 0)
-        };
-        data.push(totalRow);
-
-        const monthName = MONTHS[month - 1];
-        const categoryText = category ? ` - ${category}` : " (All Categories)";
-
-        // Column headers
-        const headers = Object.keys(data[0]);
-
-        // Create an empty worksheet
-        const worksheet = XLSX.utils.aoa_to_sheet([]);
-
-        // --------------------
-        // Row 1 : Title
-        // --------------------
-        XLSX.utils.sheet_add_aoa(
-            worksheet,
-            [[`Monthly Amortization Report for ${monthName} ${year}${categoryText}`]],
-            { origin: "A1" }
-        );
-
-        // --------------------
-        // Row 2 : Column Headers
-        // --------------------
-        XLSX.utils.sheet_add_aoa(
-            worksheet,
-            [headers],
-            { origin: "A2" }
-        );
-
-        // --------------------
-        // Row 3 : Data
-        // --------------------
-        XLSX.utils.sheet_add_json(
-            worksheet,
-            data,
-            {
-                origin: "A3",
-                skipHeader: true
-            }
-        );
-
-        // Merge title
-        const numCols = headers.length;
-
-        worksheet["!merges"] = [
-            {
-                s: { r: 0, c: 0 },
-                e: { r: 0, c: numCols - 1 }
-            }
-        ];
-
-        // Optional title style (works only with xlsx-style / SheetJS Pro)
-        worksheet["A1"].s = {
-            font: {
-                bold: true,
-                sz: 16
-            },
-            alignment: {
-                horizontal: "center",
-                vertical: "center"
-            }
-        };
-
-        // Row height for title
-        worksheet["!rows"] = [
-            { hpt: 24 }
-        ];
-
-        // Optimized column widths
-        worksheet["!cols"] = [
-            { wch: 6 },   // S/No
-            { wch: 6 },  // Box File No
-            { wch: 9 },  // Category of Rent
-            { wch: 30 },  // Branch Name
-            { wch: 9 },  // Branch Code
-            { wch: 28 },  // Owner Name
-            { wch: 14 },  // Contract Start
-            { wch: 14 },  // Contract End
-            { wch: 12 },  // Total No. of Years
-            { wch: 16 },  // Payment Paid to Date
-            { wch: 14 },  // Year with Fraction
-            { wch: 12 },  // Meter Square
-            { wch: 14 },  // Price/m² Before VAT
-            { wch: 6 },  // VAT Rate
-            { wch: 14 },  // Price/m² After VAT
-            { wch: 14 },  // Monthly Rent with VAT
-            { wch: 14 },  // Total Annual Rent
-            { wch: 14 },  // Utility / Service Charge
-            { wch: 14 },  // Full Payment
-            { wch: 14 },  // Total Payment Paid
-            { wch: 14 },  // Remaining Payment
-            { wch: 18 },  // Outstanding Balance (Prev)
-            { wch: 18 },  // Rent Expense
-            { wch: 12 },  // Total
-            { wch: 18 },  // Due
-            { wch: 14 },  // Rent Expense − Due
-            { wch: 18 },  // Rent Expense As Of
-            { wch: 18 },  // Due Difference As Of
-            { wch: 14 },  // Prepaid
-            { wch: 14 },  // Additional Expense
-            { wch: 8 },   // Day
-            { wch: 16 },  // Outstanding End
-        ];
-
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-
-        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-        const file = new Blob([excelBuffer], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        });
-
-        saveAs(file, `Amortization_Report_${monthName}_${year}${category ? `_${category}` : ""}.xlsx`);
+        try {
+            await exportMonthlyReportToExcel(rows, month, year, category);
+        } catch (err: any) {
+            alert(err?.message || "Failed to export Excel report.");
+        }
     };
 
 
@@ -411,19 +232,96 @@ export default function ReportPage() {
 
     return (
         <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginBottom: "1rem" }}>
+            {/* Page Header with Lowered, Modernized Action Buttons */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    padding: "1.5rem 0 1.25rem",
+                    borderBottom: "2px solid var(--brand-secondary)",
+                    marginBottom: "1.5rem",
+                    flexWrap: "wrap",
+                    gap: "1rem"
+                }}
+            >
+                <div>
+                    <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.5px" }}>
+                        📊 Monthly Amortization Report
+                    </h1>
+                    <p style={{ margin: "4px 0 0", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                        Select a month and year to generate the full 22-column report. Edit &quot;Due&quot; and &quot;Prepaid&quot; inline then click Save.
+                    </p>
+                </div>
 
-                <button onClick={exportToExcel} className="btn btn-success btn-sm">
-                    📥 Export Excel
-                </button>
-                <button onClick={handlePrint} className="btn btn-secondary btn-sm">
-                    🖨 Print
-                </button>
+                {/* Visually refined, lowered Action Controls */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <button
+                        onClick={exportToExcel}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "9px 18px",
+                            borderRadius: "10px",
+                            background: "linear-gradient(135deg, #bd0f0f 0%, #a31616 100%)",
+                            color: "#ffffff",
+                            border: "none",
+                            fontWeight: 700,
+                            fontSize: "0.88rem",
+                            cursor: "pointer",
+                            boxShadow: "0 2px 8px rgba(22, 163, 74, 0.35)",
+                            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.transform = "translateY(-2px)";
+                            e.currentTarget.style.boxShadow = "0 6px 16px rgba(22, 163, 74, 0.45)";
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow = "0 2px 8px rgba(22, 163, 74, 0.35)";
+                        }}
+                        title="Download formatted monthly amortization Excel workbook"
+                    >
+                        <span style={{ fontSize: "1.1rem" }}>📥</span>
+                        <span>Export Excel</span>
+                    </button>
 
-            </div>
-            <div className="page-header">
-                <h2>Monthly Amortization Report</h2>
-                <p>Select a month and year to generate the full 22-column report. Edit &quot;Due&quot; and &quot;Prepaid&quot; inline then click Save.</p>
+                    <button
+                        onClick={handlePrint}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "9px 18px",
+                            borderRadius: "10px",
+                            background: "var(--bg-card)",
+                            border: "1.5px solid var(--border)",
+                            color: "var(--text-secondary)",
+                            fontWeight: 700,
+                            fontSize: "0.88rem",
+                            cursor: "pointer",
+                            boxShadow: "var(--shadow-sm)",
+                            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.transform = "translateY(-2px)";
+                            e.currentTarget.style.borderColor = "#2563eb";
+                            e.currentTarget.style.color = "#2563eb";
+                            e.currentTarget.style.boxShadow = "0 4px 12px rgba(37, 99, 235, 0.15)";
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.borderColor = "var(--border)";
+                            e.currentTarget.style.color = "var(--text-secondary)";
+                            e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+                        }}
+                        title="Print or save PDF of amortization schedule"
+                    >
+                        <span style={{ fontSize: "1.1rem" }}>🖨</span>
+                        <span>Print</span>
+                    </button>
+                </div>
             </div>
 
             {/* ── Filter bar ── */}
@@ -754,7 +652,7 @@ export default function ReportPage() {
                 <span style={{ color: "#7c3aed", fontWeight: 600 }}>Purple values</span> End-of-Month Outstanding Balance
             </div>
 
-            {/* Modal Dialog for Box File Assignment */}
+            {/* Modern Modal Dialog for Box File Assignment */}
             {showAssignModal && (
                 <div style={{
                     position: "fixed",
@@ -762,166 +660,267 @@ export default function ReportPage() {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: "rgba(15, 23, 42, 0.65)",
-                    backdropFilter: "blur(4px)",
+                    background: "rgba(15, 23, 42, 0.7)",
+                    backdropFilter: "blur(6px)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     zIndex: 10000,
-                    padding: "1rem",
+                    padding: "1.25rem",
                 }}>
                     <div style={{
-                        background: "white",
-                        borderRadius: "12px",
-                        boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+                        background: "var(--bg-card)",
+                        borderRadius: "16px",
+                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
                         width: "100%",
-                        maxWidth: "800px",
-                        maxHeight: "90vh",
+                        maxWidth: "880px",
+                        maxHeight: "92vh",
                         display: "flex",
                         flexDirection: "column",
-                        border: "1px solid #e2e8f0"
+                        border: "1px solid var(--border)",
+                        overflow: "hidden"
                     }}>
                         {/* Modal Header */}
                         <div style={{
-                            padding: "1.25rem 1.5rem",
-                            borderBottom: "1px solid #e2e8f0",
+                            padding: "1.25rem 1.75rem",
+                            borderBottom: "1px solid var(--border)",
                             display: "flex",
                             justifyContent: "space-between",
-                            alignItems: "center"
+                            alignItems: "center",
+                            background: "var(--table-header-bg)"
                         }}>
                             <div>
-                                <h3 style={{ margin: 0, fontSize: "1.25rem", color: "#0f172a", fontWeight: 700 }}>
-                                    Assign Box File No to Contracts
-                                </h3>
-                                <p style={{ margin: "4px 0 0 0", fontSize: "0.82rem", color: "#64748b" }}>
-                                    Select contracts and set their Box File Number.
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ fontSize: "1.25rem" }}>📁</span>
+                                    <h3 style={{ margin: 0, fontSize: "1.25rem", color: "var(--text-primary)", fontWeight: 800 }}>
+                                        Assign Box File Number to Contracts
+                                    </h3>
+                                </div>
+                                <p style={{ margin: "4px 0 0 0", fontSize: "0.84rem", color: "#64748b" }}>
+                                    Select contracts below and assign their physical archive Box File tracking numbers.
                                 </p>
                             </div>
                             <button
                                 onClick={() => { setShowAssignModal(false); setSelectedLeases([]); }}
                                 style={{
-                                    background: "none",
+                                    background: "#e2e8f0",
                                     border: "none",
-                                    color: "#94a3b8",
-                                    fontSize: "1.5rem",
+                                    borderRadius: "50%",
+                                    width: "30px",
+                                    height: "30px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#475569",
+                                    fontSize: "1rem",
                                     cursor: "pointer",
-                                    padding: "4px",
-                                    lineHeight: 1,
-                                    transition: "color 0.2s"
+                                    fontWeight: 700,
+                                    transition: "all 0.15s"
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.color = "#0f172a"}
-                                onMouseLeave={(e) => e.currentTarget.style.color = "#94a3b8"}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "#fee2e2"; e.currentTarget.style.color = "#dc2626"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "#e2e8f0"; e.currentTarget.style.color = "#475569"; }}
                             >
-                                &times;
+                                ✕
                             </button>
                         </div>
 
                         {/* Modal Content */}
-                        <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                        <div style={{ padding: "1.5rem 1.75rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-                            {/* Filter and Assign Control Bar */}
+                            {/* Action Card: Box File Input & Apply Button */}
                             <div style={{
-                                background: "#f8fafc",
-                                padding: "1rem",
-                                borderRadius: "8px",
-                                border: "1px solid #f1f5f9",
+                                background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                                padding: "1.25rem",
+                                borderRadius: "12px",
+                                border: "1px solid #cbd5e1",
                                 display: "flex",
                                 flexDirection: "column",
-                                gap: "1rem"
+                                gap: "10px"
                             }}>
-                                {/* Box File Input & Submit */}
-                                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-                                    <div style={{ flex: 1, minWidth: "200px" }}>
-                                        <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "#475569", marginBottom: "6px" }}>
-                                            Box File No to Assign:
+                                <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
+                                    <div style={{ flex: 1, minWidth: "240px" }}>
+                                        <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
+                                            Box File Number to Assign:
                                         </label>
                                         <input
                                             type="text"
-                                            placeholder="e.g. Box-10, ZB-098"
+                                            placeholder="e.g. Box-10, ZB-ATM-04, ZB-CITY-01"
                                             value={boxFileNoToAssign}
                                             onChange={e => setBoxFileNoToAssign(e.target.value)}
                                             style={{
                                                 width: "100%",
-                                                padding: "0.5rem 0.75rem",
-                                                borderRadius: "6px",
-                                                border: "1.5px solid #cbd5e1",
-                                                fontSize: "0.88rem"
+                                                padding: "9px 12px",
+                                                borderRadius: "8px",
+                                                border: "1px solid var(--input-border)",
+                                                fontSize: "0.9rem",
+                                                fontWeight: 600,
+                                                color: "var(--input-text)",
+                                                background: "var(--input-bg)"
                                             }}
                                         />
                                     </div>
                                     <button
                                         onClick={handleAssignBoxFileNo}
                                         disabled={assignLoading || selectedLeases.length === 0}
-                                        className="btn btn-primary"
                                         style={{
-                                            height: "38px",
-                                            padding: "0 1.25rem",
+                                            padding: "9px 20px",
+                                            borderRadius: "8px",
+                                            border: "none",
+                                            background: selectedLeases.length > 0 ? "#2563eb" : "#94a3b8",
+                                            color: "#ffffff",
                                             fontSize: "0.88rem",
-                                            fontWeight: 600,
+                                            fontWeight: 700,
+                                            cursor: selectedLeases.length > 0 ? "pointer" : "not-allowed",
+                                            boxShadow: selectedLeases.length > 0 ? "0 2px 8px rgba(37,99,235,0.3)" : "none",
+                                            transition: "all 0.2s",
                                             whiteSpace: "nowrap"
                                         }}
                                     >
-                                        {assignLoading ? "⏳ Assigning..." : `Apply to ${selectedLeases.length} Selected`}
+                                        {assignLoading ? "⏳ Assigning..." : `💾 Apply to ${selectedLeases.length} Selected`}
                                     </button>
                                 </div>
 
-                                {/* Category Tabs */}
-                                <div>
-                                    <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#475569", display: "block", marginBottom: "8px" }}>
-                                        Filter by Category of Rent:
-                                    </span>
-                                    <div style={{ display: "flex", gap: "6px" }}>
-                                        {["All", "ATM", "Outline", "City"].map(cat => {
+                                {/* Quick Prefix Chips */}
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "2px" }}>
+                                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>Quick Presets:</span>
+                                    {["Box-", "ZB-ATM-", "ZB-CITY-", "ZB-OUT-"].map(prefix => (
+                                         <button
+                                             key={prefix}
+                                             type="button"
+                                             onClick={() => setBoxFileNoToAssign(prefix)}
+                                             style={{
+                                                 background: "var(--bg-card)",
+                                                 border: "1px solid var(--border)",
+                                                 borderRadius: "6px",
+                                                 padding: "2px 8px",
+                                                 fontSize: "0.72rem",
+                                                 fontWeight: 600,
+                                                 color: "var(--text-secondary)",
+                                                 cursor: "pointer",
+                                                 transition: "all 0.15s"
+                                             }}
+                                             onMouseEnter={e => { e.currentTarget.style.borderColor = "#2563eb"; e.currentTarget.style.color = "#2563eb"; }}
+                                             onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                                         >
+                                             {prefix}
+                                         </button>
+                                     ))}
+                                </div>
+                            </div>
+
+                            {/* Search & Category Filter Bar */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                                    {/* Category Filter Pills */}
+                                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                                        {["All", "ATM", "City", "Outline"].map(cat => {
                                             const isActive = assignCategory === cat;
+                                            const count = cat === "All"
+                                                ? allLeases.length
+                                                : allLeases.filter(l => (l.categoryOfRent || "").toUpperCase() === cat.toUpperCase()).length;
                                             return (
                                                 <button
                                                     key={cat}
                                                     type="button"
                                                     onClick={() => setAssignCategory(cat)}
                                                     style={{
-                                                        padding: "6px 12px",
+                                                        padding: "5px 12px",
                                                         borderRadius: "20px",
-                                                        fontSize: "0.82rem",
+                                                        fontSize: "0.8rem",
                                                         fontWeight: 600,
                                                         cursor: "pointer",
                                                         border: "1px solid",
-                                                        borderColor: isActive ? "#3b82f6" : "#cbd5e1",
-                                                        background: isActive ? "#3b82f6" : "white",
-                                                        color: isActive ? "white" : "#475569",
-                                                        transition: "all 0.2s"
+                                                        borderColor: isActive ? "#2563eb" : "#cbd5e1",
+                                                        background: isActive ? "#2563eb" : "#ffffff",
+                                                        color: isActive ? "#ffffff" : "#475569",
+                                                        transition: "all 0.15s"
                                                     }}
                                                 >
-                                                    {cat === "All" ? "All Categories" : cat}
+                                                    {cat === "All" ? "All Categories" : cat} ({count})
                                                 </button>
                                             );
                                         })}
                                     </div>
+
+                                    {/* Selection Controls */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        {selectedLeases.length > 0 && (
+                                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#2563eb", background: "#eff6ff", padding: "3px 8px", borderRadius: "6px" }}>
+                                                {selectedLeases.length} Selected
+                                            </span>
+                                        )}
+                                        {selectedLeases.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedLeases([])}
+                                                style={{
+                                                    background: "none",
+                                                    border: "none",
+                                                    color: "#64748b",
+                                                    fontSize: "0.75rem",
+                                                    cursor: "pointer",
+                                                    textDecoration: "underline"
+                                                }}
+                                            >
+                                                Clear Selection
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Search Bar */}
-                                <div>
+                                <div style={{ position: "relative" }}>
                                     <input
-                                        type="search"
-                                        placeholder="🔍 Search branch code, name, or owner..."
+                                        type="text"
+                                        placeholder="🔍 Search branch name, code, owner, or current box file..."
                                         value={assignSearch}
                                         onChange={e => setAssignSearch(e.target.value)}
                                         style={{
                                             width: "100%",
-                                            padding: "0.5rem 0.75rem",
-                                            borderRadius: "6px",
-                                            border: "1.5px solid #cbd5e1",
-                                            fontSize: "0.88rem"
+                                            padding: "8px 12px",
+                                            borderRadius: "8px",
+                                            border: "1px solid #cbd5e1",
+                                            fontSize: "0.85rem",
+                                            background: "#f8fafc",
+                                            outline: "none"
                                         }}
                                     />
+                                    {assignSearch && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setAssignSearch("")}
+                                            style={{
+                                                position: "absolute",
+                                                right: "10px",
+                                                top: "50%",
+                                                transform: "translateY(-50%)",
+                                                background: "none",
+                                                border: "none",
+                                                color: "#94a3b8",
+                                                cursor: "pointer",
+                                                fontWeight: 700
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Contract List Table */}
-                            <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden", flex: 1, maxHeight: "350px", overflowY: "auto" }}>
-                                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                                    <thead style={{ background: "#f8fafc", position: "sticky", top: 0, zIndex: 1, borderBottom: "1px solid #e2e8f0" }}>
+                            <div style={{
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                overflow: "hidden",
+                                flex: 1,
+                                maxHeight: "360px",
+                                overflowY: "auto",
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                            }}>
+                                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
+                                    <thead style={{ background: "#f8fafc", position: "sticky", top: 0, zIndex: 2, borderBottom: "1px solid #e2e8f0" }}>
                                         <tr>
-                                            <th style={{ width: "50px", padding: "10px 12px", textAlign: "left" }}>
+                                            <th style={{ width: "45px", padding: "10px 12px", textAlign: "center" }}>
                                                 <input
                                                     type="checkbox"
                                                     onChange={e => {
@@ -929,7 +928,8 @@ export default function ReportPage() {
                                                             const matchesSearch =
                                                                 (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                                 (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
-                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.boxFileNo ?? "").toLowerCase().includes(assignSearch.toLowerCase());
                                                             const matchesCat =
                                                                 assignCategory === "All" ||
                                                                 (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
@@ -947,20 +947,33 @@ export default function ReportPage() {
                                                             const matchesSearch =
                                                                 (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                                 (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
-                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.boxFileNo ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                            const matchesCat =
+                                                                assignCategory === "All" ||
+                                                                (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
+                                                            return matchesSearch && matchesCat;
+                                                        }).length > 0 &&
+                                                        allLeases.filter(l => {
+                                                            const matchesSearch =
+                                                                (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                                (l.boxFileNo ?? "").toLowerCase().includes(assignSearch.toLowerCase());
                                                             const matchesCat =
                                                                 assignCategory === "All" ||
                                                                 (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
                                                             return matchesSearch && matchesCat;
                                                         }).every(l => selectedLeases.includes(l.id))
                                                     }
+                                                    style={{ cursor: "pointer", width: "15px", height: "15px" }}
                                                 />
                                             </th>
-                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Branch</th>
-                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Code</th>
-                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Owner</th>
-                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Category</th>
-                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Box File No</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#475569" }}>Branch Name</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#475569" }}>Code</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#475569" }}>Category</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#475569" }}>Owner / Lessor</th>
+                                            <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#475569" }}>Current Box File</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -969,7 +982,8 @@ export default function ReportPage() {
                                                 const matchesSearch =
                                                     (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                     (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
-                                                    (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                    (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                    (l.boxFileNo ?? "").toLowerCase().includes(assignSearch.toLowerCase());
                                                 const matchesCat =
                                                     assignCategory === "All" ||
                                                     (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
@@ -978,8 +992,23 @@ export default function ReportPage() {
                                             .map(l => {
                                                 const isChecked = selectedLeases.includes(l.id);
                                                 return (
-                                                    <tr key={l.id} style={{ borderBottom: "1px solid #f1f5f9", background: isChecked ? "#f0f9ff" : "white" }}>
-                                                        <td style={{ padding: "10px 12px" }}>
+                                                    <tr
+                                                        key={l.id}
+                                                        style={{
+                                                            borderBottom: "1px solid #f1f5f9",
+                                                            background: isChecked ? "#f0f9ff" : "transparent",
+                                                            transition: "background 0.12s",
+                                                            cursor: "pointer"
+                                                        }}
+                                                        onClick={() => {
+                                                            if (isChecked) {
+                                                                setSelectedLeases(prev => prev.filter(id => id !== l.id));
+                                                            } else {
+                                                                setSelectedLeases(prev => [...prev, l.id]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <td style={{ padding: "10px 12px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={isChecked}
@@ -990,19 +1019,43 @@ export default function ReportPage() {
                                                                         setSelectedLeases(prev => prev.filter(id => id !== l.id));
                                                                     }
                                                                 }}
+                                                                style={{ cursor: "pointer", width: "15px", height: "15px" }}
                                                             />
                                                         </td>
-                                                        <td style={{ padding: "10px 12px", fontWeight: 500, color: "#0f172a" }}>{l.branchName}</td>
-                                                        <td style={{ padding: "10px 12px" }}>
-                                                            <span className="badge badge-blue">{l.branchCode}</span>
+                                                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "#0f172a" }}>
+                                                            {l.branchName}
                                                         </td>
-                                                        <td style={{ padding: "10px 12px", color: "#334155" }}>{l.ownerName}</td>
                                                         <td style={{ padding: "10px 12px" }}>
-                                                            <span className="badge badge-blue" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
+                                                            <span style={{ fontFamily: "monospace", fontWeight: 600, color: "#1e293b", background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
+                                                                {l.branchCode}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            <span style={{
+                                                                background: l.categoryOfRent === "ATM" ? "#f3e8ff" : l.categoryOfRent === "City" ? "#e0f2fe" : "#fef3c7",
+                                                                color: l.categoryOfRent === "ATM" ? "#7e22ce" : l.categoryOfRent === "City" ? "#0369a1" : "#b45309",
+                                                                padding: "2px 8px",
+                                                                borderRadius: "6px",
+                                                                fontSize: "0.75rem",
+                                                                fontWeight: 600
+                                                            }}>
                                                                 {l.categoryOfRent || "—"}
                                                             </span>
                                                         </td>
-                                                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#4f46e5" }}>{l.boxFileNo || "—"}</td>
+                                                        <td style={{ padding: "10px 12px", color: "#334155" }}>
+                                                            {l.ownerName}
+                                                        </td>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            {l.boxFileNo ? (
+                                                                <span style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "2px 8px", borderRadius: "6px", fontWeight: 700, fontSize: "0.78rem" }}>
+                                                                    {l.boxFileNo}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>
+                                                                    — None
+                                                                </span>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
@@ -1010,18 +1063,19 @@ export default function ReportPage() {
                                             const matchesSearch =
                                                 (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
                                                 (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
-                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                                (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                                (l.boxFileNo ?? "").toLowerCase().includes(assignSearch.toLowerCase());
                                             const matchesCat =
                                                 assignCategory === "All" ||
                                                 (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
                                             return matchesSearch && matchesCat;
                                         }).length === 0 && (
-                                                <tr>
-                                                    <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                                                        No contracts found.
-                                                    </td>
-                                                </tr>
-                                            )}
+                                            <tr>
+                                                <td colSpan={6} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>
+                                                    No contracts found matching your filter criteria.
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -1029,20 +1083,39 @@ export default function ReportPage() {
 
                         {/* Modal Footer */}
                         <div style={{
-                            padding: "1rem 1.5rem",
+                            padding: "1rem 1.75rem",
                             borderTop: "1px solid #e2e8f0",
                             display: "flex",
-                            justifyContent: "flex-end",
-                            gap: "0.75rem",
-                            background: "#f8fafc",
-                            borderBottomLeftRadius: "12px",
-                            borderBottomRightRadius: "12px"
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            background: "#f8fafc"
                         }}>
+                            <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                                Total Matching: <strong>{allLeases.filter(l => {
+                                    const matchesSearch =
+                                        (l.branchName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                        (l.branchCode ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                        (l.ownerName ?? "").toLowerCase().includes(assignSearch.toLowerCase()) ||
+                                        (l.boxFileNo ?? "").toLowerCase().includes(assignSearch.toLowerCase());
+                                    const matchesCat =
+                                        assignCategory === "All" ||
+                                        (l.categoryOfRent ?? "").toLowerCase() === assignCategory.toLowerCase();
+                                    return matchesSearch && matchesCat;
+                                }).length}</strong> contracts
+                            </div>
                             <button
                                 type="button"
-                                className="btn btn-secondary"
                                 onClick={() => { setShowAssignModal(false); setSelectedLeases([]); }}
-                                style={{ fontSize: "0.88rem", fontWeight: 600 }}
+                                style={{
+                                    background: "#0f172a",
+                                    color: "#ffffff",
+                                    border: "none",
+                                    padding: "8px 20px",
+                                    borderRadius: "8px",
+                                    fontSize: "0.85rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer"
+                                }}
                             >
                                 Close
                             </button>

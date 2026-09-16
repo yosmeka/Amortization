@@ -18,17 +18,30 @@ export default function Navbar() {
     // ✅ Load + refresh when route changes
     useEffect(() => {
         const loadUser = () => {
-            setUsername(localStorage.getItem("username"));
-            setRole(localStorage.getItem("role"));
+            const token = localStorage.getItem("token");
+            const u = localStorage.getItem("username");
+            const r = localStorage.getItem("role");
+
+            if (!token || !u || !r) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("username");
+                localStorage.removeItem("role");
+                setUsername(null);
+                setRole(null);
+                if (path !== "/login") {
+                    router.replace("/login");
+                }
+                return;
+            }
+
+            setUsername(u);
+            setRole(r);
         };
 
         loadUser();
-
-        // Optional: listen to storage changes (multi-tab support)
         window.addEventListener("storage", loadUser);
-
         return () => window.removeEventListener("storage", loadUser);
-    }, [path]);
+    }, [path, router]);
 
     const logout = () => {
         localStorage.removeItem("token");
@@ -99,7 +112,7 @@ export default function Navbar() {
                             fontWeight: 500
                         }}
                     >
-                        {username ?? "Guest"}
+                        {username || "User"}
                     </button>
 
                     {open && (
@@ -118,7 +131,7 @@ export default function Navbar() {
                             }}
                         >
                             <p style={{ margin: 0, fontSize: "14px", color: "#272424" }}>
-                                <strong>User:</strong> {username ?? "Guest"}
+                                <strong>User:</strong> {username || "User"}
                             </p>
 
                             <p style={{ margin: "6px 0", fontSize: "14px", color: "#272424" }}>

@@ -1,182 +1,25 @@
 "use client";
 import { useState } from "react";
 import { fetchReport, AmortizationReportRow } from "@/lib/api";
-import * as XLSX from "xlsx";
-
-const MONTHS = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December"
-];
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import {
+    Ticket,
+    TicketRow,
+    MONTHS,
+    buildATM,
+    buildCityOutline,
+    exportGLTicketToExcel,
+    exportExpenseUploadToExcel,
+    numberToWords
+} from "@/lib/excelExport";
 
 function fmt(n: number | null | undefined) {
     if (n == null || isNaN(n)) return "—";
     return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const GL_OFFICE_RENT  = "502149";
-const GL_UTILITY      = "502170";
-const GL_PREPAID      = "104401";
-const GL_AP_MISC      = "208130";
-const ZEMEN_CODE      = "000";
-const ZEMEN_NAME      = "Zemen Bank";
-const ATM_CODE        = "108";
-const ATM_NAME        = "Multichannel Banking Department";
-
-type Row = {
-    branchCode: string;
-    branchName: string;
-    glNumber:   string;
-    description: string;
-    amount:     number;
-    inRespectOf: string;
-};
-
-type Ticket = {
-    title:       string;
-    debit:       Row[];
-    debitTotal:  number;
-    credit:      Row[];
-    creditTotal: number;
-};
-
-/* ── builders ─────────────────────────────────────────────── */
-
-function buildATM(rows: AmortizationReportRow[], month: number, year: number): Ticket {
-    const lbl = `${MONTHS[month - 1]} ${year}`;
-    const office = rows.filter(r => !r.stampDutyRow && !r.utilityPaymentRow);
-    const utility = rows.filter(r => r.utilityPaymentRow);
-    const totalExp     = office.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
-    const utilityTotal = utility.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
-    const totalDue     = office.reduce((s, r) => s + (r.dueForMonth         ?? 0), 0);
-    const totalPrepaid = totalExp - totalDue;
-
-
-    
-    return {
-        title: "ATM Rent Schedule Ticket",
-        debit: [
-            {
-            branchCode: ATM_CODE, branchName: ATM_NAME,
-            glNumber: GL_OFFICE_RENT, description: "Office Rent", amount: totalExp,
-            inRespectOf: `ATM Space Rent for the Month of ${lbl}.`,
-            },
-            ...utility.map(r => ({
-                branchCode: r.branchCode, branchName: r.branchName,
-                glNumber: GL_UTILITY, description: "Utility Payment", amount: r.rentExpenseForMonth ?? 0,
-                inRespectOf: `Utility payment for ${r.branchName} for the month of ${lbl}.`,
-            })),
-        ],
-        debitTotal: totalExp + utilityTotal,
-        credit: [
-            {
-                branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
-                glNumber: GL_AP_MISC, description: "Account Payable-Miscellaneous", amount: totalDue,
-                inRespectOf: `Amount held under A/P Miscellaneous for different ATM space rent for the month of ${lbl}.`,
-            },
-            {
-                branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
-                glNumber: GL_PREPAID, description: "Prepaid-Office Rent", amount: totalPrepaid,
-                inRespectOf: `ATM Space Rent for the Month of ${lbl}.`,
-            },
-            {
-                branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
-                glNumber: GL_AP_MISC, description: "Account Payable-Miscellaneous", amount: utilityTotal,
-                inRespectOf: `Utility payment payable for the month of ${lbl}.`,
-            },
-        ],
-        creditTotal: totalDue + totalPrepaid + utilityTotal,
-    };
-}
-
-function buildCityOutline(rows: AmortizationReportRow[], month: number, year: number, cat: "City" | "Outline"): Ticket {
-    const lbl    = `${MONTHS[month - 1]} ${year}`;
-    const catLbl = cat === "City" ? "City Branches" : "Outline Branches";
-
-    const contracts = new Map<number, AmortizationReportRow[]>();
-    rows.forEach(r => {
-        const g = contracts.get(r.leaseContractId) ?? [];
-        g.push(r);
-        contracts.set(r.leaseContractId, g);
-    });
-
-    const debit: Row[] = [];
-    let totalExp = 0, totalDue = 0;
-
-    contracts.forEach(group => {
-        const sdRow     = group.find(r => r.stampDutyRow);
-        const officeRow = group.find(r => !r.stampDutyRow && !r.utilityPaymentRow);
-        const utilityRows = group.filter(r => r.utilityPaymentRow);
-        const amount    = sdRow?.total ?? officeRow?.rentExpenseForMonth ?? 0;
-        const due       = group.reduce((s, r) => s + (r.dueForMonth       ?? 0), 0);
-        const utilityAmount = utilityRows.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0);
-
-        totalExp     += amount;
-        totalExp     += utilityAmount;
-        totalDue     += due;
-
-        if (officeRow) {
-            debit.push({
-                branchCode: officeRow.branchCode, branchName: officeRow.branchName,
-                glNumber: GL_OFFICE_RENT, description: "Office Rent", amount,
-                inRespectOf: `Office rent and stamp duty expense of ${officeRow.branchName} for the month of ${lbl}.`,
-            });
-        }
-        utilityRows.forEach(r => debit.push({
-            branchCode: r.branchCode, branchName: r.branchName,
-            glNumber: GL_UTILITY, description: "Utility Payment", amount: r.rentExpenseForMonth ?? 0,
-            inRespectOf: `Utility payment for ${r.branchName} for the month of ${lbl}.`,
-        }));
-    });
-
-    const totalPrepaid = totalExp - totalDue;
-
-    return {
-        title: `Office Rent Ticket (${catLbl})`,
-        debit,
-        debitTotal: totalExp,
-        credit: [
-            {
-                branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
-                glNumber: GL_PREPAID, description: "Prepaid-Office Rent", amount: totalPrepaid,
-                inRespectOf: `Office rent and stamp duty expense of ${catLbl} for the month of ${lbl}.`,
-            },
-            {
-                branchCode: ZEMEN_CODE, branchName: ZEMEN_NAME,
-                glNumber: GL_AP_MISC, description: "Account Payable-Miscellaneous", amount: totalDue,
-                inRespectOf: `Amount held under A/P Miscellaneous for different Office and ATM space rent for the month of ${lbl}.`,
-            },
-        ],
-        creditTotal: totalPrepaid + totalDue,
-    };
-}
-
-/* ── Excel export ─────────────────────────────────────────── */
-function exportToExcel(ticket: Ticket, month: number, year: number) {
-    const rows: (string | number)[][] = [];
-
-    const header = ["Branch Code","Branch Name","GL Number","Description","Amount (ETB)","In Respect Of"];
-
-    rows.push([ticket.title]);
-    rows.push([]);
-    rows.push(["— DEBIT —"]);
-    rows.push(header);
-    ticket.debit.forEach(r => rows.push([r.branchCode, r.branchName, r.glNumber, r.description, r.amount, r.inRespectOf]));
-    rows.push(["","","","Debit Total", ticket.debitTotal, ""]);
-    rows.push([]);
-    rows.push(["— CREDIT —"]);
-    rows.push(header);
-    ticket.credit.forEach(r => rows.push([r.branchCode, r.branchName, r.glNumber, r.description, r.amount, r.inRespectOf]));
-    rows.push(["","","","Credit Total", ticket.creditTotal, ""]);
-
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 14 },{ wch: 36 },{ wch: 12 },{ wch: 30 },{ wch: 18 },{ wch: 70 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "GL Ticket");
-    XLSX.writeFile(wb, `GL_Ticket_${MONTHS[month-1]}_${year}.xlsx`);
-}
-
 /* ── Table component ──────────────────────────────────────── */
-function Section({ label, rows, total }: { label: string; rows: Row[]; total: number }) {
+function Section({ label, rows, total }: { label: string; rows: TicketRow[]; total: number }) {
     return (
         <>
             <div className="gl-section-hdr">{label}</div>
@@ -184,9 +27,9 @@ function Section({ label, rows, total }: { label: string; rows: Row[]; total: nu
                 <table className="gl-tbl">
                     <colgroup>
                         <col style={{ width: 100 }} />
-                        <col style={{ width: 180 }} />
+                        <col style={{ width: 220 }} />
                         <col style={{ width: 90 }} />
-                        <col style={{ width: 190 }} />
+                        <col style={{ width: 180 }} />
                         <col style={{ width: 140 }} />
                         <col />
                     </colgroup>
@@ -196,7 +39,7 @@ function Section({ label, rows, total }: { label: string; rows: Row[]; total: nu
                             <th>Branch Name</th>
                             <th>GL Number</th>
                             <th>Description</th>
-                            <th className="r">Amount</th>
+                            <th className="r">Amount (ETB)</th>
                             <th>In Respect Of</th>
                         </tr>
                     </thead>
@@ -223,29 +66,125 @@ function Section({ label, rows, total }: { label: string; rows: Row[]; total: nu
     );
 }
 
+function SingleTicketView({ ticket }: { ticket: Ticket }) {
+    return (
+        <div className="gl-ticket" style={{ marginBottom: "2rem" }}>
+            <div style={{ textAlign: "center", color: "#64748b", marginBottom: 4, fontSize: ".85rem" }}>
+                <strong style={{ color: "#1e293b", fontSize: "1.05rem" }}>🏦 ZEMEN BANK S.C</strong>
+            </div>
+            <div className="gl-ticket-title">{ticket.title}</div>
+            <Section label="DEBIT" rows={ticket.debit} total={ticket.debitTotal} />
+            <Section label="CREDIT" rows={ticket.credit} total={ticket.creditTotal} />
+
+            <div style={{ marginTop: "1rem", padding: "12px 16px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: ".85rem" }}>
+                <div style={{ marginBottom: 6 }}>
+                    <strong style={{ color: "#475569" }}>IN RESPECT OF: </strong>
+                    <span>{ticket.narration}</span>
+                </div>
+                <div>
+                    <strong style={{ color: "#475569" }}>AMOUNT IN WORDS: </strong>
+                    <span style={{ fontWeight: 600 }}>BIRR {numberToWords(ticket.creditTotal)} ONLY</span>
+                </div>
+            </div>
+
+            <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
+                <div style={{ textAlign: "center", minWidth: 260 }}>
+                    <div style={{ borderBottom: "1px dotted #64748b", height: 24, marginBottom: 6 }}></div>
+                    <span style={{ fontSize: ".85rem", fontWeight: 700, color: "#334155" }}>Authorized Signature</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ── Main page ────────────────────────────────────────────── */
 export default function GLReportPage() {
+    useAuthGuard();
+
     const now = new Date();
     const [month, setMonth]       = useState(now.getMonth() + 1);
     const [year, setYear]         = useState(now.getFullYear());
     const [category, setCategory] = useState("ATM");
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState("");
-    const [ticket, setTicket]     = useState<Ticket | null>(null);
+    const [tickets, setTickets]   = useState<Ticket[]>([]);
+    const [reportRows, setReportRows] = useState<AmortizationReportRow[]>([]);
 
     const generate = async () => {
-        setLoading(true); setError(""); setTicket(null);
+        setLoading(true);
+        setError("");
+        setTickets([]);
         try {
-            const rows = await fetchReport(month, year, category || undefined);
-            if (!rows.length) { setError("No data for this period / category."); return; }
-            setTicket(
-                category === "ATM"
-                    ? buildATM(rows, month, year)
-                    : buildCityOutline(rows, month, year, category as "City" | "Outline")
-            );
-        } catch { setError("Failed to load report. Is the backend running?"); }
-        finally   { setLoading(false); }
+            const fetchCat = category === "All" ? undefined : category;
+            const rows = await fetchReport(month, year, fetchCat);
+            if (!rows.length) {
+                setError("No data found for this period / category.");
+                return;
+            }
+            setReportRows(rows);
+
+            if (category === "All") {
+                const atmRows = rows.filter(r => (r.categoryOfRent || "").toUpperCase().includes("ATM"));
+                const cityRows = rows.filter(r => (r.categoryOfRent || "").toUpperCase().includes("CITY"));
+                const outlineRows = rows.filter(r => (r.categoryOfRent || "").toUpperCase().includes("OUTLINE"));
+
+                const generated: Ticket[] = [];
+                if (atmRows.length > 0) {
+                    generated.push(buildATM(atmRows, month, year));
+                }
+                if (cityRows.length > 0) {
+                    generated.push(buildCityOutline(cityRows, month, year, "City"));
+                }
+                if (outlineRows.length > 0) {
+                    generated.push(buildCityOutline(outlineRows, month, year, "Outline"));
+                }
+
+                if (generated.length === 0) {
+                    // Fallback if rows didn't match category strings strictly
+                    generated.push(buildATM(rows, month, year));
+                }
+                setTickets(generated);
+            } else if (category === "ATM") {
+                setTickets([buildATM(rows, month, year)]);
+            } else {
+                setTickets([buildCityOutline(rows, month, year, category as "City" | "Outline")]);
+            }
+        } catch {
+            setError("Failed to load report. Is the backend running?");
+        } finally {
+            setLoading(false);
+        }
     };
+
+    const handleExportExcel = async () => {
+        if (!tickets.length) {
+            alert("Please generate tickets first.");
+            return;
+        }
+        try {
+            await exportGLTicketToExcel(tickets, month, year, category);
+        } catch (err: any) {
+            alert(err?.message || "Failed to export GL Ticket Excel.");
+        }
+    };
+
+    const handleExportExpenseUpload = async () => {
+        try {
+            let rowsToExport = reportRows;
+            if (!rowsToExport.length || category !== "All") {
+                rowsToExport = await fetchReport(month, year, undefined);
+            }
+            if (!rowsToExport.length) {
+                alert("No amortization data found for this period to generate Expense Upload.");
+                return;
+            }
+            await exportExpenseUploadToExcel(rowsToExport, month, year);
+        } catch (err: any) {
+            alert(err?.message || "Failed to export Expense Upload Excel.");
+        }
+    };
+
+    const grandTotal = tickets.reduce((s, t) => s + t.debitTotal, 0);
 
     return (
         <div style={{ padding: "1.5rem", maxWidth: "100%", boxSizing: "border-box" }}>
@@ -276,11 +215,11 @@ export default function GLReportPage() {
                 /* section header */
                 .gl-section-hdr {
                     background:#475569; color:#fff; text-align:center;
-                    font-weight:700; padding:5px; border-radius:4px;
+                    font-weight:700; padding:6px; border-radius:4px;
                     letter-spacing:2px; margin-bottom:0; font-size:.85rem;
                 }
                 .gl-tbl-wrap {
-                    overflow-x:auto;          /* horizontal scroll if viewport too narrow */
+                    overflow-x:auto;
                     margin-bottom:1.5rem;
                 }
 
@@ -313,7 +252,7 @@ export default function GLReportPage() {
 
             {/* Controls */}
             <div className="no-print">
-                <h1 style={{ fontSize:"1.4rem", fontWeight:700, marginBottom:"1rem", color:"#1e293b" }}>
+                <h1 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "1rem", color: "#1e293b" }}>
                     📋 GL Rent Schedule Ticket
                 </h1>
                 <div className="gl-controls">
@@ -326,7 +265,7 @@ export default function GLReportPage() {
                     <div>
                         <label>Year</label>
                         <input type="number" value={year} onChange={e => setYear(Number(e.target.value))}
-                            style={{ width:88 }} />
+                            style={{ width: 88 }} />
                     </div>
                     <div>
                         <label>Category</label>
@@ -334,42 +273,53 @@ export default function GLReportPage() {
                             <option value="ATM">ATM</option>
                             <option value="City">City</option>
                             <option value="Outline">Outline</option>
+                            <option value="All">All Categories (Merged Ticket)</option>
                         </select>
                     </div>
                     <button className="gl-btn" onClick={generate} disabled={loading}
-                        style={{ background:"#2563eb", color:"#fff" }}>
+                        style={{ background: "#f30b0bc4", color: "#fff" }}>
                         {loading ? "Generating…" : "Generate Ticket"}
                     </button>
-                    {ticket && (<>
+                    {tickets.length > 0 && (<>
                         <button className="gl-btn" onClick={() => window.print()}
-                            style={{ background:"#475569", color:"#fff" }}>
+                            style={{ background: "#475569", color: "#fff" }}>
                             🖨️ Print
                         </button>
-                        <button className="gl-btn" onClick={() => exportToExcel(ticket, month, year)}
-                            style={{ background:"#16a34a", color:"#fff" }}>
+                        <button className="gl-btn" onClick={handleExportExcel}
+                            style={{ background: "#a31d16", color: "#fff" }}>
                             📥 Export Excel
+                        </button>
+                        <button className="gl-btn" onClick={handleExportExpenseUpload}
+                            style={{ background: "#262428", color: "#fff" }}>
+                            📤 Expense Upload Download
                         </button>
                     </>)}
                 </div>
                 {error && (
-                    <div style={{ color:"#dc2626", background:"#fef2f2", padding:"10px 16px",
-                        borderRadius:8, border:"1px solid #fecaca", marginBottom:"1rem" }}>
+                    <div style={{ color: "#dc2626", background: "#fef2f2", padding: "10px 16px",
+                        borderRadius: 8, border: "1px solid #fecaca", marginBottom: "1rem" }}>
                         {error}
                     </div>
                 )}
             </div>
 
-            {/* Ticket */}
-            {ticket && (
+            {/* Ticket Views */}
+            {tickets.length > 0 && (
                 <div id="gl-printable">
-                    <div className="gl-ticket">
-                        <div style={{ textAlign:"center", color:"#64748b", marginBottom:4, fontSize:".85rem" }}>
-                            <strong style={{ color:"#1e293b" }}>🏦 ZEMEN BANK</strong>
+                    {tickets.map((t, idx) => (
+                        <SingleTicketView key={idx} ticket={t} />
+                    ))}
+
+                    {tickets.length > 1 && (
+                        <div style={{ padding: "16px 20px", background: "#f1f5f9", borderRadius: 10, border: "2px solid #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "#1e293b" }}>
+                                🏛️ GRAND TOTAL (ALL TICKETS DEBIT):
+                            </span>
+                            <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a" }}>
+                                ETB {fmt(grandTotal)}
+                            </span>
                         </div>
-                        <div className="gl-ticket-title">{ticket.title}</div>
-                        <Section label="DEBIT"  rows={ticket.debit}  total={ticket.debitTotal}  />
-                        <Section label="CREDIT" rows={ticket.credit} total={ticket.creditTotal} />
-                    </div>
+                    )}
                 </div>
             )}
         </div>
