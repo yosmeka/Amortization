@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { AmortizationReportRow } from "./api";
+import { Z11_LOGO_BASE64 } from "./z11Logo";
 
 export const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -283,6 +284,13 @@ const darkThinBorder: Partial<ExcelJS.Borders> = {
     right: { style: "thin", color: { argb: "FF808080" } }
 };
 
+const ticketBoxBorder: Partial<ExcelJS.Borders> = {
+    top: { style: "thin", color: { argb: "FF000000" } },
+    left: { style: "thin", color: { argb: "FF000000" } },
+    bottom: { style: "thin", color: { argb: "FF000000" } },
+    right: { style: "thin", color: { argb: "FF000000" } }
+};
+
 const accountingTotalBorder: Partial<ExcelJS.Borders> = {
     top: { style: "thin", color: { argb: "FF808080" } },
     left: { style: "thin", color: { argb: "FF808080" } },
@@ -351,16 +359,17 @@ export async function exportMonthlyReportToExcel(
         { width: 16 },  // X - Rent Expense
         { width: 16 },  // Y - Due
         { width: 16 },  // Z - Rent Expense − Due
-        { width: 16 },  // AA - Reent Expense As Of
+        { width: 16 },  // AA - Rent Expense As Of
         { width: 16 },  // AB - Due Difference As Of
-        { width: 16 },  // AC - Prepaid
-        { width: 16 },  // AD - Additional Expense
-        { width: 10 },  // AE - Day
-        { width: 18 },  // AF - Outstanding End
+        { width: 16 },  // AC - Due As Of
+        { width: 16 },  // AD - Prepaid
+        { width: 16 },  // AE - Additional Expense
+        { width: 10 },  // AF - Day
+        { width: 18 },  // AG - Outstanding End
     ];
 
-    // Row 2: Zemen Bank S.C (B2:AF2)
-    ws.mergeCells("B2:AF2");
+    // Row 2: Zemen Bank S.C (B2:AG2)
+    ws.mergeCells("B2:AG2");
     const b2 = ws.getCell("B2");
     b2.value = "Zemen Bank S.C";
     b2.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FF000000" } };
@@ -368,8 +377,8 @@ export async function exportMonthlyReportToExcel(
     b2.fill = fillSolid("EEE8AA");
     ws.getRow(2).height = 24;
 
-    // Row 3: Monthly Amortization Report for [category] (B3:AF3)
-    ws.mergeCells("B3:AF3");
+    // Row 3: Monthly Amortization Report for [category] (B3:AG3)
+    ws.mergeCells("B3:AG3");
     const b3 = ws.getCell("B3");
     b3.value = `Monthly Amortization Report ${categoryLabel}`;
     b3.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FF000000" } };
@@ -377,8 +386,8 @@ export async function exportMonthlyReportToExcel(
     b3.fill = fillSolid("EEE8AA");
     ws.getRow(3).height = 24;
 
-    // Row 4: For the month of [Month Year] (B4:AF4)
-    ws.mergeCells("B4:AF4");
+    // Row 4: For the month of [Month Year] (B4:AG4)
+    ws.mergeCells("B4:AG4");
     const b4 = ws.getCell("B4");
     b4.value = `For the month of ${monthName} ${year}`;
     b4.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF000000" } };
@@ -387,19 +396,19 @@ export async function exportMonthlyReportToExcel(
     ws.getRow(4).height = 22;
 
     for (let r = 2; r <= 4; r++) {
-        for (let c = 2; c <= 32; c++) {
+        for (let c = 2; c <= 33; c++) {
             ws.getCell(r, c).fill = fillSolid("EEE8AA");
         }
     }
 
-    // Row 5: Column Headers (B5 to AF5)
+    // Row 5: Column Headers (B5 to AG5)
     const headers = [
         "S/No", "Box File No", "Category of Rent", "Branch Name", "Branch Code", "Owner Name",
         "Contract Start", "Contract End", "Total No. of Years", "Payment Paid to Date",
         "Year with Fraction", "Meter Square", "Price/m² Before VAT", "VAT Rate", "Price/m² After VAT",
         "Monthly Rent with VAT", "Total Annual Rent", "Utility / Service Charge", "Full Payment",
         "Total Payment Paid", "Remaining Payment", "Outstanding Balance (Prev)", "Rent Expense",
-        "Due", "Rent Expense − Due", "Reent Expense As Of", "Due Difference As Of", "Prepaid",
+        "Due", "Rent Expense − Due", "Rent Expense As Of", "Due Difference As Of", "cumulative Due As Of", "Prepaid",
         "Additional Expense", "Day", "Outstanding End"
     ];
 
@@ -453,10 +462,11 @@ export async function exportMonthlyReportToExcel(
             r.rentMinusDue ?? 0,                          // Z: Rent Expense − Due
             r.rentExpenseAsOf ?? 0,                       // AA: Rent Expense As Of
             r.dueDifferenceAsOf ?? 0,                     // AB: Due Difference As Of
-            r.prepaidOfficeRent ?? 0,                     // AC: Prepaid
-            r.additionalExpense ?? 0,                     // AD: Additional Expense
-            r.entryDay ?? "",                             // AE: Day
-            r.outstandingBalanceEndOfMonth ?? 0           // AF: Outstanding End
+            r.dueAsOf ?? 0,                               // AC: Due As Of
+            r.prepaidOfficeRent ?? 0,                     // AD: Prepaid
+            r.additionalExpense ?? 0,                     // AE: Additional Expense
+            r.entryDay ?? "",                             // AF: Day
+            r.outstandingBalanceEndOfMonth ?? 0           // AG: Outstanding End
         ];
 
         rowValues.forEach((val, cIdx) => {
@@ -465,7 +475,7 @@ export async function exportMonthlyReportToExcel(
             cell.font = { name: "Calibri", size: 10 };
             cell.border = thinBorder;
 
-            if ([0, 1, 2, 4, 6, 7, 9, 29].includes(cIdx)) {
+            if ([0, 1, 2, 4, 6, 7, 9, 30].includes(cIdx)) {
                 cell.alignment = { horizontal: "center", vertical: "middle" };
             } else if ([3, 5].includes(cIdx)) {
                 cell.alignment = { horizontal: "left", vertical: "middle" };
@@ -478,7 +488,7 @@ export async function exportMonthlyReportToExcel(
                 cell.alignment = { horizontal: "right", vertical: "middle" };
             } else if (typeof val === "number") {
                 cell.alignment = { horizontal: "right", vertical: "middle" };
-                cell.numFmt = "#,##0.00";
+                cell.numFmt = [12, 14, 15, 21, 22, 23, 24, 25, 26, 27, 28, 31].includes(cIdx) ? "#,##0.0000" : "#,##0.00";
             }
         });
 
@@ -502,8 +512,8 @@ export async function exportMonthlyReportToExcel(
     totalRow.getCell(3).border = accountingTotalBorder;
     totalRow.getCell(3).fill = fillSolid("D3D3D3");
 
-    const numColsToSum = [10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32];
-    for (let c = 4; c <= 32; c++) {
+    const numColsToSum = [10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33];
+    for (let c = 4; c <= 33; c++) {
         const cell = totalRow.getCell(c);
         let colLetter = "";
         let tempC = c;
@@ -517,7 +527,7 @@ export async function exportMonthlyReportToExcel(
             cell.value = {
                 formula: `SUM(${colLetter}${startDataRow}:${colLetter}${endDataRow})`
             };
-            cell.numFmt = "#,##0.00";
+            cell.numFmt = [14, 16, 17, 23, 24, 25, 26, 27, 28, 29, 30, 33].includes(c) ? "#,##0.0000" : "#,##0.00";
         } else {
             cell.value = 0;
         }
@@ -576,7 +586,7 @@ export async function exportMonthlyReportToExcel(
     rExp.getCell(6).value = { formula: rentExpCellRef };
     rExp.getCell(6).font = { name: "Calibri", size: 10 };
     rExp.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
-    rExp.getCell(6).numFmt = "#,##0.00";
+    rExp.getCell(6).numFmt = "#,##0.0000";
     rExp.getCell(6).border = darkThinBorder;
 
     rExp.getCell(7).value = "";
@@ -594,7 +604,7 @@ export async function exportMonthlyReportToExcel(
     rPay.getCell(7).value = { formula: dueCellRef };
     rPay.getCell(7).font = { name: "Calibri", size: 10 };
     rPay.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    rPay.getCell(7).numFmt = "#,##0.00";
+    rPay.getCell(7).numFmt = "#,##0.0000";
     rPay.getCell(7).border = darkThinBorder;
 
     // Prepaid Row
@@ -609,7 +619,7 @@ export async function exportMonthlyReportToExcel(
     rPrep.getCell(7).value = { formula: `${rentExpCellRef}-${dueCellRef}` };
     rPrep.getCell(7).font = { name: "Calibri", size: 10 };
     rPrep.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    rPrep.getCell(7).numFmt = "#,##0.00";
+    rPrep.getCell(7).numFmt = "#,##0.0000";
     rPrep.getCell(7).border = darkThinBorder;
 
     // Total Row
@@ -624,7 +634,7 @@ export async function exportMonthlyReportToExcel(
     };
     rTot.getCell(6).font = { name: "Calibri", size: 10, bold: true };
     rTot.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
-    rTot.getCell(6).numFmt = "#,##0.00";
+    rTot.getCell(6).numFmt = "#,##0.0000";
     rTot.getCell(6).fill = fillSolid("F2DCDB");
     rTot.getCell(6).border = accountingTotalBorder;
 
@@ -633,7 +643,7 @@ export async function exportMonthlyReportToExcel(
     };
     rTot.getCell(7).font = { name: "Calibri", size: 10, bold: true };
     rTot.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    rTot.getCell(7).numFmt = "#,##0.00";
+    rTot.getCell(7).numFmt = "#,##0.0000";
     rTot.getCell(7).fill = fillSolid("F2DCDB");
     rTot.getCell(7).border = accountingTotalBorder;
 
@@ -650,35 +660,93 @@ export async function exportMonthlyReportToExcel(
    Matching tiketFormatt.xlsx (ATM, City, Outline & All Ticket)
    ───────────────────────────────────────────────────────────── */
 
+let cachedLogoBuffer: ArrayBuffer | null = null;
+
+async function loadLogoBuffer(): Promise<ArrayBuffer | null> {
+    if (cachedLogoBuffer) return cachedLogoBuffer;
+    try {
+        if (typeof window !== "undefined") {
+            const urls = [
+                "/amortization/z-11.png",
+                "/z-11.png",
+                `${window.location.origin}/amortization/z-11.png`,
+                `${window.location.origin}/z-11.png`
+            ];
+            for (const url of urls) {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        cachedLogoBuffer = await res.arrayBuffer();
+                        return cachedLogoBuffer;
+                    }
+                } catch {}
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to load /z-11.png logo:", e);
+    }
+    return null;
+}
+
 function renderTicketSection(
     ws: ExcelJS.Worksheet,
     ticket: Ticket,
     startRow: number,
-    reportDateStr: string
+    reportDateStr: string,
+    logoImageId: number | null
 ): { nextStartRow: number; debitTotalCellRef: string; creditTotalCellRef: string } {
     let r = startRow;
 
-    // Date in Col F & G
-    const dateRow = ws.getRow(r);
-    dateRow.getCell(6).value = "        Date ";
-    dateRow.getCell(6).font = { name: "Calibri", size: 10 };
-    dateRow.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
+    // Header Box: B[r]:G[r+1]
+    const headerStartRow = r;
+    const headerEndRow = r + 1;
 
-    dateRow.getCell(7).value = reportDateStr;
-    dateRow.getCell(7).font = { name: "Calibri", size: 10, bold: true };
-    dateRow.getCell(7).alignment = { horizontal: "left", vertical: "middle" };
+    ws.getRow(headerStartRow).height = 26;
+    ws.getRow(headerEndRow).height = 28;
 
-    r += 2;
+    // Top Center: "Date"
+    ws.mergeCells(headerStartRow, 4, headerStartRow, 6);
+    const dateLabelCell = ws.getCell(headerStartRow, 4);
+    dateLabelCell.value = "Date";
+    dateLabelCell.font = { name: "Calibri", size: 10, bold: true };
+    dateLabelCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    // Title centered across D:F
-    ws.mergeCells(r, 4, r, 6);
-    const titleCell = ws.getCell(r, 4);
+    // Top Right: Report Date
+    const dateValCell = ws.getCell(headerStartRow, 7);
+    dateValCell.value = reportDateStr;
+    dateValCell.font = { name: "Calibri", size: 10, bold: true };
+    dateValCell.alignment = { horizontal: "right", vertical: "middle" };
+
+    // Bottom Center: Ticket Title (Underlined, bold)
+    ws.mergeCells(headerEndRow, 4, headerEndRow, 6);
+    const titleCell = ws.getCell(headerEndRow, 4);
     titleCell.value = ticket.title;
-    titleCell.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FF000000" } };
+    titleCell.font = { name: "Calibri", size: 11, bold: true, underline: true, color: { argb: "FF000000" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
-    ws.getRow(r).height = 24;
 
-    r += 2;
+    // Apply Solid White Fill & Box Border Margins across B to G
+    for (let rowIdx = headerStartRow; rowIdx <= headerEndRow; rowIdx++) {
+        for (let c = 2; c <= 7; c++) {
+            const cell = ws.getCell(rowIdx, c);
+            cell.fill = fillSolid("FFFFFF");
+            const b: any = cell.border ? { ...cell.border } : {};
+            if (rowIdx === headerStartRow) b.top = ticketBoxBorder.top;
+            if (rowIdx === headerEndRow) b.bottom = ticketBoxBorder.bottom;
+            if (c === 2) b.left = ticketBoxBorder.left;
+            if (c === 7) b.right = ticketBoxBorder.right;
+            cell.border = b;
+        }
+    }
+
+    // Top Left: Zemen Bank logo (z-11.png)
+    if (logoImageId !== null) {
+        ws.addImage(logoImageId, {
+            tl: { col: 1.15, row: headerStartRow - 1 + 0.12 },
+            ext: { width: 125, height: 48 }
+        });
+    }
+
+    r += 3;
 
     // DEBIT Header banner (B to G)
     ws.mergeCells(r, 2, r, 7);
@@ -848,50 +916,107 @@ function renderTicketSection(
     r += 1;
 
     // Difference Check Row: Debit - Credit in Col D
+    ws.getRow(r).height = 20;
     const diffCell = ws.getCell(r, 4);
     diffCell.value = { formula: `${debitTotalRef}-${creditTotalRef}` };
     diffCell.font = { name: "Calibri", size: 10, color: { argb: "FF666666" } };
-    diffCell.numFmt = "#,##0.00";
+    diffCell.numFmt = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"??_);_(@_)';
     diffCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    r += 2;
+    r += 1;
 
-    // IN RESPECT OF:
-    const inRespRow = ws.getRow(r);
-    inRespRow.getCell(2).value = "IN RESPECT OF:";
-    inRespRow.getCell(2).font = { name: "Calibri", size: 10, bold: true };
+    // Footer Card Box (Columns B to G)
+    const cardStartRow = r;
+    const cardEndRow = cardStartRow + 9;
 
-    ws.mergeCells(r, 4, r, 7);
-    const inRespContent = ws.getCell(r, 4);
+    // Row 1: Spacer
+    ws.getRow(cardStartRow).height = 16;
+
+    // Row 2: IN RESPECT OF: (Centered across B to D)
+    const inRespRowIdx = cardStartRow + 1;
+    ws.getRow(inRespRowIdx).height = 24;
+    ws.mergeCells(inRespRowIdx, 2, inRespRowIdx, 4);
+    const inRespLabel = ws.getCell(inRespRowIdx, 2);
+    inRespLabel.value = "IN RESPECT OF:";
+    inRespLabel.font = { name: "Calibri", size: 10, bold: true };
+    inRespLabel.alignment = { horizontal: "center", vertical: "middle" };
+
+    // Row 3: Narration (Centered, Bold, Underlined across D to G)
+    const narrRowIdx = cardStartRow + 2;
+    ws.getRow(narrRowIdx).height = 26;
+    ws.mergeCells(narrRowIdx, 4, narrRowIdx, 7);
+    const inRespContent = ws.getCell(narrRowIdx, 4);
     inRespContent.value = ticket.narration;
-    inRespContent.font = { name: "Calibri", size: 10 };
+    inRespContent.font = { name: "Calibri", size: 11, bold: true, underline: true };
+    inRespContent.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
 
-    r += 1;
+    // Row 4: AMOUNT IN WORDS: (Left-aligned across B to E)
+    const amtWordsRowIdx = cardStartRow + 3;
+    ws.getRow(amtWordsRowIdx).height = 24;
+    ws.mergeCells(amtWordsRowIdx, 2, amtWordsRowIdx, 5);
+    const amtWordsLabel = ws.getCell(amtWordsRowIdx, 2);
+    amtWordsLabel.value = "AMOUNT IN WORDS:";
+    amtWordsLabel.font = { name: "Calibri", size: 10, bold: true };
+    amtWordsLabel.alignment = { horizontal: "left", vertical: "middle" };
 
-    // AMOUNT IN WORDS:
-    const amtWordsRow = ws.getRow(r);
-    amtWordsRow.getCell(2).value = "AMOUNT IN WORDS:";
-    amtWordsRow.getCell(2).font = { name: "Calibri", size: 10, bold: true };
+    // Row 5: BIRR (Centered in Col D)
+    const birrRowIdx = cardStartRow + 4;
+    ws.getRow(birrRowIdx).height = 22;
+    const birrCell = ws.getCell(birrRowIdx, 4);
+    birrCell.value = "BIRR";
+    birrCell.font = { name: "Calibri", size: 10, bold: true };
+    birrCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    ws.mergeCells(r, 4, r, 7);
-    const amtWordsContent = ws.getCell(r, 4);
-    amtWordsContent.value = `BIRR ${numberToWords(ticket.creditTotal)} ONLY`;
-    amtWordsContent.font = { name: "Calibri", size: 10, bold: true };
+    // Row 6: Spelled Words (Centered across Col D to F)
+    const wordsRowIdx = cardStartRow + 5;
+    ws.getRow(wordsRowIdx).height = 28;
+    ws.mergeCells(wordsRowIdx, 4, wordsRowIdx, 6);
+    const wordsCell = ws.getCell(wordsRowIdx, 4);
+    wordsCell.value = ticket.creditTotal > 0
+        ? `${numberToWords(ticket.creditTotal).toUpperCase()} ONLY`
+        : "ZERO ONLY";
+    wordsCell.font = { name: "Calibri", size: 10, bold: true };
+    wordsCell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
 
-    r += 3;
+    // Row 7: Spacer
+    ws.getRow(cardStartRow + 6).height = 20;
 
-    // Authorized Signature
-    const sigLineRow = ws.getRow(r);
-    sigLineRow.getCell(6).value = "………………………………………………………………………………………………………………………………";
-    sigLineRow.getCell(6).font = { name: "Calibri", size: 10 };
+    // Row 8: Authorized Signature Line (Merged F to G)
+    const sigLineRowIdx = cardStartRow + 7;
+    ws.getRow(sigLineRowIdx).height = 22;
+    ws.mergeCells(sigLineRowIdx, 6, sigLineRowIdx, 7);
+    const sigLineCell = ws.getCell(sigLineRowIdx, 6);
+    sigLineCell.value = "………………………………………………………………………………………………………………………………";
+    sigLineCell.font = { name: "Calibri", size: 10, bold: true };
+    sigLineCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    r += 1;
-    const sigLabelRow = ws.getRow(r);
-    sigLabelRow.getCell(7).value = "Authorized Signature";
-    sigLabelRow.getCell(7).font = { name: "Calibri", size: 10, bold: true };
-    sigLabelRow.getCell(7).alignment = { horizontal: "center", vertical: "middle" };
+    // Row 9: Authorized Signature Label (Merged F to G, centered)
+    const sigLabelRowIdx = cardStartRow + 8;
+    ws.getRow(sigLabelRowIdx).height = 20;
+    ws.mergeCells(sigLabelRowIdx, 6, sigLabelRowIdx, 7);
+    const sigLabel = ws.getCell(sigLabelRowIdx, 6);
+    sigLabel.value = "Authorized Signature";
+    sigLabel.font = { name: "Calibri", size: 10, bold: true };
+    sigLabel.alignment = { horizontal: "center", vertical: "middle" };
 
-    r += 3;
+    // Row 10: Closing Spacer
+    ws.getRow(cardEndRow).height = 18;
+
+    // Apply Solid White Fill & Box Border Margins across B to G
+    for (let rowIdx = cardStartRow; rowIdx <= cardEndRow; rowIdx++) {
+        for (let c = 2; c <= 7; c++) {
+            const cell = ws.getCell(rowIdx, c);
+            cell.fill = fillSolid("FFFFFF");
+            const b: any = cell.border ? { ...cell.border } : {};
+            if (rowIdx === cardStartRow) b.top = ticketBoxBorder.top;
+            if (rowIdx === cardEndRow) b.bottom = ticketBoxBorder.bottom;
+            if (c === 2) b.left = ticketBoxBorder.left;
+            if (c === 7) b.right = ticketBoxBorder.right;
+            cell.border = b;
+        }
+    }
+
+    r = cardEndRow + 3;
 
     return { nextStartRow: r, debitTotalCellRef: debitTotalRef, creditTotalCellRef: creditTotalRef };
 }
@@ -907,16 +1032,38 @@ export async function exportGLTicketToExcel(
         throw new Error("No ticket data available to export.");
     }
 
-    const monthName = MONTHS[month - 1];
-    const reportDateStr = new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-    });
+    const monthName = MONTHS[month - 1] ?? `Month_${month}`;
+    const now = new Date();
+    const day = now.getDate();
+    const monthShort = now.toLocaleDateString("en-GB", { month: "short" });
+    const yearNum = now.getFullYear();
+    const reportDateStr = `${day}-${monthShort}-${yearNum}`;
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Zemen Bank Amortization System";
     workbook.created = new Date();
+
+    let logoImageId: number | null = null;
+    try {
+        if (Z11_LOGO_BASE64) {
+            logoImageId = workbook.addImage({
+                base64: Z11_LOGO_BASE64,
+                extension: "png",
+            });
+        }
+    } catch (e) {
+        console.warn("Failed to add base64 logo image to workbook:", e);
+    }
+
+    if (logoImageId === null) {
+        const logoBuffer = await loadLogoBuffer();
+        if (logoBuffer) {
+            logoImageId = workbook.addImage({
+                buffer: logoBuffer,
+                extension: "png",
+            });
+        }
+    }
 
     const isAll = ticketList.length > 1 || categoryName === "All";
     const sheetName = isAll ? "All Ticket" : `${categoryName} Ticket`;
@@ -935,11 +1082,11 @@ export async function exportGLTicketToExcel(
         { width: 100 }, // G - In Respect Of
     ];
 
-    let currentStartRow = 3;
+    let currentStartRow = 2;
     const debitTotalRefs: string[] = [];
 
     ticketList.forEach((t) => {
-        const result = renderTicketSection(ws, t, currentStartRow, reportDateStr);
+        const result = renderTicketSection(ws, t, currentStartRow, reportDateStr, logoImageId);
         debitTotalRefs.push(result.debitTotalCellRef);
         currentStartRow = result.nextStartRow;
     });

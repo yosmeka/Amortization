@@ -39,6 +39,14 @@ function fmt(n: number | null | undefined) {
     });
 }
 
+function fmtPrice(n: number | null | undefined) {
+    if (n == null || isNaN(n)) return "—";
+    return n.toLocaleString("en-ET", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4
+    });
+}
+
 function fmtDate(s: string | undefined | null) {
     if (!s) return "—";
     const d = new Date(s);
@@ -739,7 +747,7 @@ export default function ApprovalsPage() {
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 800, color: "#0f172a" }}>
-                                                    ETB {fmt(monthly)}
+                                                    ETB {fmtPrice(monthly)}
                                                 </td>
                                                 <td style={{ padding: "12px 14px", textAlign: "center" }}>
                                                     <div style={{ display: "flex", gap: "4px", justifyContent: "center" }}>
@@ -1231,7 +1239,7 @@ export default function ApprovalsPage() {
                                             <div>
                                                 <div style={{ fontSize: "0.72rem", color: "#94a3b8", textTransform: "uppercase" }}>Monthly Rent + VAT</div>
                                                 <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#38bdf8", marginTop: "2px" }}>
-                                                    ETB {fmt(
+                                                    ETB {fmtPrice(
                                                         viewingLease.monthlyRentWithVat ||
                                                         (viewingLease.meterSquare * viewingLease.meterSquarePriceBeforeVat * (1 + (viewingLease.vatRate ?? 0.15)))
                                                     )}
@@ -1248,7 +1256,7 @@ export default function ApprovalsPage() {
                                             <div>
                                                 <div style={{ fontSize: "0.72rem", color: "#94a3b8", textTransform: "uppercase" }}>Price / m² (Before VAT)</div>
                                                 <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#ffffff", marginTop: "2px" }}>
-                                                    ETB {fmt(viewingLease.meterSquarePriceBeforeVat)}
+                                                    ETB {fmtPrice(viewingLease.meterSquarePriceBeforeVat)}
                                                 </div>
                                             </div>
                                         </div>

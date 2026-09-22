@@ -51,6 +51,7 @@ function toForm(data: any): LeaseContractRequest {
         branchCode: data.branchCode ?? "",
         region: data.region ?? "",
         categoryOfRent: data.categoryOfRent ?? "",
+        boxFileNo: data.boxFileNo ?? "",
         lessorName1: data.lessorName1 ?? "",
         lessorName2: data.lessorName2 ?? "",
         lessorName3: data.lessorName3 ?? "",
@@ -209,6 +210,10 @@ function EditLeasePageInner() {
 
                         </select>
                     </div>
+                    <div className="form-group">
+                        <label>Box File No</label>
+                        <input value={form.boxFileNo ?? ""} onChange={e => set("boxFileNo", e.target.value)} placeholder="e.g. BOX-001" />
+                    </div>
                 </div>
             </div>
 
@@ -284,7 +289,7 @@ function EditLeasePageInner() {
                     </div>
                     <div className="form-group">
                         <label>Price per m² (Before VAT) *</label>
-                        <input type="number" step="0.01" required value={form.meterSquarePriceBeforeVat} onChange={e => set("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
+                        <input type="number" step="0.0001" required value={form.meterSquarePriceBeforeVat} onChange={e => set("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                     </div>
                     <div className="form-group">
                         <label>VAT Rate</label>
@@ -420,7 +425,7 @@ function EditLeasePageInner() {
                         </div>
                         <div className="form-group">
                             <label>Price per m² (Before VAT)</label>
-                            <input type="number" step="0.01" value={form.stampDuty?.meterSquarePriceBeforeVat ?? 0}
+                            <input type="number" step="0.0001" value={form.stampDuty?.meterSquarePriceBeforeVat ?? 0}
                                 onChange={e => setSD("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                         </div>
                         <div className="form-group">

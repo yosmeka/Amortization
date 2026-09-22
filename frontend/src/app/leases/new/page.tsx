@@ -11,7 +11,7 @@ const MONTHS = [
 const YEARS = Array.from({ length: 20 }, (_, i) => new Date().getFullYear() - 10 + i);
 
 const EMPTY_FORM: LeaseContractRequest = {
-    branchName: "", branchCode: "", region: "", categoryOfRent: "",
+    branchName: "", branchCode: "", region: "", categoryOfRent: "", boxFileNo: "",
     lessorName1: "", lessorName2: "", lessorName3: "",
     tinNumber: "", contactInfo1: "", contactInfo2: "", contactInfo3: "",
     accountNumber: "", taxCategory: "VAT",
@@ -91,6 +91,7 @@ function NewLeasePageInner() {
                     branchCode: data.branchCode ?? "",
                     region: data.region ?? "",
                     categoryOfRent: data.categoryOfRent ?? "",
+                    boxFileNo: data.boxFileNo ?? "",
                     // Lessor
                     ownerName: data.ownerName ?? "",
                     lessorName1: data.lessorName1 ?? "",
@@ -252,6 +253,11 @@ function NewLeasePageInner() {
                             <option>City</option>
                         </select>
                     </div>
+                    <div className="form-group">
+                        <label>Box File No</label>
+                        <input className="form-control" value={form.boxFileNo ?? ""}
+                            onChange={e => set("boxFileNo", e.target.value)} placeholder="e.g. BOX-001" />
+                    </div>
                 </div>
             </div>
 
@@ -342,7 +348,7 @@ function NewLeasePageInner() {
                     </div>
                     <div className="form-group">
                         <label>Price per m² (Before VAT) *</label>
-                        <input type="number" step="0.01" className="form-control" required
+                        <input type="number" step="0.0001" className="form-control" required
                             value={form.meterSquarePriceBeforeVat || ""}
                             onChange={e => set("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                     </div>
@@ -493,7 +499,7 @@ function NewLeasePageInner() {
                             </div>
                             <div className="form-group">
                                 <label>Price per m² (Before VAT) *</label>
-                                <input type="number" step="0.01" className="form-control"
+                                <input type="number" step="0.0001" className="form-control"
                                     value={form.stampDuty?.meterSquarePriceBeforeVat || ""}
                                     onChange={e => setSD("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                             </div>
@@ -596,8 +602,8 @@ function LivePreview({ form }: { form: LeaseContractRequest }) {
             padding: "0.75rem 1rem", marginTop: "1rem",
             display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "0.5rem",
         }}>
-            <PreviewItem label="Price/m² after VAT" value={priceAfterVat} />
-            <PreviewItem label="Monthly Rent with VAT" value={monthly} />
+            <PreviewItem label="Price/m² after VAT" value={priceAfterVat} decimals={4} />
+            <PreviewItem label="Monthly Rent with VAT" value={monthly} decimals={4} />
             <PreviewItem label="Total Annual Rent" value={annual} />
         </div>
     );
@@ -626,18 +632,18 @@ function StampDutyPreview({ sd, contractStartDate, paymentPaidToDate }: {
             display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "0.5rem",
         }}>
             <PreviewItem label="Full Payment (Stamp Duty)" value={fullPayment} />
-            <PreviewItem label="Monthly Rent (No VAT)" value={monthly} />
+            <PreviewItem label="Monthly Rent (No VAT)" value={monthly} decimals={4} />
             <PreviewItem label="Annual Rent (Stamp Duty)" value={monthly * 12} />
         </div>
     );
 }
 
-function PreviewItem({ label, value }: { label: string; value: number }) {
+function PreviewItem({ label, value, decimals = 2 }: { label: string; value: number; decimals?: number }) {
     return (
         <div>
             <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#64748b" }}>{label}</div>
             <div style={{ fontWeight: 700, color: "#1d4ed8", fontSize: "0.95rem" }}>
-                {isNaN(value) ? "—" : value.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {isNaN(value) ? "—" : value.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: decimals })}
             </div>
         </div>
     );

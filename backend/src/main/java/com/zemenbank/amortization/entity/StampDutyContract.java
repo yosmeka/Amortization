@@ -36,7 +36,7 @@ public class StampDutyContract {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal meterSquare;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 18, scale = 4)
     private BigDecimal meterSquarePriceBeforeVat;
 
     @Column(nullable = false, precision = 5, scale = 4)

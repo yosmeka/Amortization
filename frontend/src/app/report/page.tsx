@@ -13,10 +13,18 @@ function fmt(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
     return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function fmtPrice(n: number | undefined | null) {
+    if (n == null || isNaN(n)) return "—";
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+function fmt4(n: number | undefined | null) {
+    if (n == null || isNaN(n)) return "—";
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
 /** 8-decimal formatting for amortization chain (outstanding, prorated rent, due, prepaid). */
 function fmtCalc(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
-    return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 function fmtDate(s: string | undefined | null) {
     if (!s) return "—";
@@ -171,8 +179,8 @@ export default function ReportPage() {
             if (data.alreadyFilled) {
                 const monthName = MONTHS[(data.filledMonth || 1) - 1];
                 const amount = data.filledAmount
-                    ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 2 })
-                    : "0.00";
+                    ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+                    : "0.0000";
 
                 setToast({
                     type: "success",
@@ -459,6 +467,9 @@ export default function ReportPage() {
                                 <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
                                     Due Difference As Of {MONTHS[month - 1]} {year}
                                 </th>
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                    Cumulative Due As Of {MONTHS[month - 1]} {year}
+                                </th>
                                 <th style={{ background: "#e0f2fe", color: "#075985" }}>Prepaid Office Rent ✏️</th>
                                 {/* <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th> */}
                                 {/* <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th> */}
@@ -497,10 +508,10 @@ export default function ReportPage() {
                                             <td>{fmtDate(row.paymentPaidToDate)}</td>
                                             <td className="number">{row.yearWithFraction}</td>
                                             <td className="number">{fmt(row.meterSquare)}</td>
-                                            <td className="number">{fmt(row.meterSquarePriceBeforeVat)}</td>
+                                            <td className="number">{fmtPrice(row.meterSquarePriceBeforeVat)}</td>
                                             <td className="number">{row.vatRate != null ? `${row.vatRate * 100}%` : "—"}</td>
-                                            <td className="number">{fmt(row.meterSquarePriceAfterVat)}</td>
-                                            <td className="number highlight">{fmt(row.monthlyRentWithVat)}</td>
+                                            <td className="number">{fmtPrice(row.meterSquarePriceAfterVat)}</td>
+                                            <td className="number highlight">{fmtPrice(row.monthlyRentWithVat)}</td>
                                             <td className="number">{fmt(row.totalAnnualRentAmount)}</td>
                                             <td className="number">{fmt(row.utilityPayment)}</td>
                                             <td className="number">{fmt(row.fullPayment)}</td>
@@ -510,7 +521,7 @@ export default function ReportPage() {
                                             {/* ✏️ Rent Expense — editable override; auto-value shown as placeholder */}
                                             <td className="editable-cell" style={{ background: "#f0fdf4" }}>
                                                 {row.rentExpenseOverridden && <span title="Overridden" style={{ fontSize: "0.7rem", color: "#f59e0b" }}>✏️ </span>}
-                                                <input type="number" step="0.01"
+                                                <input type="number" step="0.0001"
                                                     placeholder={fmtCalc(row.rentExpenseForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.rentExpense}
@@ -518,12 +529,12 @@ export default function ReportPage() {
                                             </td>
                                             {/* Stamp duty shows office + stamp duty; utility shows its own expense. */}
                                             <td className="number" style={{ fontWeight: 700 }}>
-                                                {row.total != null ? fmt(row.total) : ""}
+                                                {row.total != null ? fmt4(row.total) : ""}
                                             </td>
 
                                             {/* ✏️ Editable: Due for Month */}
                                             <td className="editable-cell" style={{ background: "#fefce8" }}>
-                                                <input type="number" step="0.01"
+                                                <input type="number" step="0.0001"
                                                     placeholder={fmtCalc(row.dueForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.due}
@@ -544,11 +555,16 @@ export default function ReportPage() {
                                                 {fmtCalc(row.dueDifferenceAsOf)}
                                             </td>
 
+                                            {/* Due As Of */}
+                                            <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
+                                                {fmtCalc(row.dueAsOf)}
+                                            </td>
+
 
                                             {/* ✏️ Editable: Prepaid Office Rent + Auto-Calc button */}
                                             <td className="editable-cell" style={{ background: "#eff6ff" }}>
                                                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                                    <input type="number" step="0.01"
+                                                    <input type="number" step="0.0001"
                                                         style={{ flex: 1 }}
                                                         value={edit.prepaid}
                                                         onChange={e => handleEdit(key, "prepaid", e.target.value)} />
@@ -618,10 +634,10 @@ export default function ReportPage() {
                                 <td /><td /><td /><td /><td /><td />
                                 {/* Numeric columns aligned with thead */}
                                 <td className="number">{fmt(rows.reduce((s, r) => s + (r.meterSquare ?? 0), 0))}</td>
-                                <td className="number">{fmt(rows.reduce((s, r) => s + (r.meterSquarePriceBeforeVat ?? 0), 0))}</td>
+                                <td className="number">{fmtPrice(rows.reduce((s, r) => s + (r.meterSquarePriceBeforeVat ?? 0), 0))}</td>
                                 <td /> {/* VAT Rate */}
-                                <td className="number">{fmt(rows.reduce((s, r) => s + (r.meterSquarePriceAfterVat ?? 0), 0))}</td>
-                                <td className="number" style={{ color: "#93c5fd" }}>{fmt(filteredRows.reduce((s, r) => s + (r.monthlyRentWithVat ?? 0), 0))}</td>
+                                <td className="number">{fmtPrice(rows.reduce((s, r) => s + (r.meterSquarePriceAfterVat ?? 0), 0))}</td>
+                                <td className="number" style={{ color: "#93c5fd" }}>{fmtPrice(filteredRows.reduce((s, r) => s + (r.monthlyRentWithVat ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.totalAnnualRentAmount ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.utilityPayment ?? 0), 0))}</td>
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.fullPayment ?? 0), 0))}</td>
@@ -629,11 +645,13 @@ export default function ReportPage() {
                                 <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.remainingPayment ?? 0), 0))}</td>
                                 <td className="number" style={{ color: "#93c5fd" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.outstandingBalancePriorMonth ?? 0), 0))}</td>
                                 <td className="number" style={{ color: "#6ee7b7" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.rentExpenseForMonth ?? 0), 0))}</td>
-                                <td className="number">{fmt(filteredRows.reduce((s, r) => s + (r.total ?? 0), 0))}</td>
+                                <td className="number">{fmt4(filteredRows.reduce((s, r) => s + (r.total ?? 0), 0))}</td>
                                 <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.dueForMonth ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.rentMinusDue ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.rentExpenseAsOf ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.dueDifferenceAsOf ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.dueAsOf ?? 0), 0))}</td>
                                 <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.prepaidOfficeRent ?? 0), 0))}</td>
-                                <td className="number" style={{ color: "#f472b6" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.additionalExpense ?? 0), 0))}</td>
-                                <td />{/* Day — no total */}
                                 <td className="number" style={{ color: "#c4b5fd" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.outstandingBalanceEndOfMonth ?? 0), 0))}</td>
                                 <td />{/* Action column */}
                             </tr>

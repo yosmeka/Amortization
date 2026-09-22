@@ -13,6 +13,14 @@ function fmt(n: number | null | undefined) {
     });
 }
 
+function fmtPrice(n: number | null | undefined) {
+    if (n == null || isNaN(n)) return "0.00";
+    return n.toLocaleString("en-ET", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4
+    });
+}
+
 function fmtShort(n: number | null | undefined) {
     if (n == null || isNaN(n)) return "0";
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -768,7 +776,7 @@ export default function Home() {
                                             </td>
                                             <td style={{ padding: "12px", color: "var(--text-secondary)" }}>{l.ownerName}</td>
                                             <td style={{ padding: "12px", textAlign: "right", fontWeight: 700, color: "var(--text-primary)" }}>
-                                                ETB {fmt(monthly)}
+                                                ETB {fmtPrice(monthly)}
                                             </td>
                                             <td style={{ padding: "12px", textAlign: "center" }}>
                                                 {l.approvalStatus === "APPROVED" && (
