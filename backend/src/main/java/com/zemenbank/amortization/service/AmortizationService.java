@@ -37,8 +37,8 @@ public class AmortizationService {
 
     private static final BigDecimal DAYS_IN_YEAR = new BigDecimal("365");
     private static final int SCALE = 8;
-    private static final int MONEY_SCALE = 4;
-    private static final int PRICE_SCALE = 4;
+    private static final int MONEY_SCALE = 2;
+    private static final int PRICE_SCALE = 2;
     private static final RoundingMode RM = RoundingMode.HALF_EVEN;
     private static final RoundingMode MONEY_RM = RoundingMode.HALF_EVEN;
     private static final BigDecimal HALF_CENT = new BigDecimal("0.005");
@@ -50,10 +50,13 @@ public class AmortizationService {
 
     public record PrepaidSuggestionResponse(
             BigDecimal suggestedPrepaid,
+            BigDecimal cumulativeExpense,
             boolean alreadyFilled,
             Integer filledMonth,
             Integer filledYear,
-            BigDecimal filledAmount) {
+            BigDecimal filledAmount,
+            boolean beyondPaymentPaidToDate,
+            String message) {
     }
 
     // =========================================================
@@ -506,6 +509,19 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
                     computeDueDifferenceAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
             officeRow.setDueAsOf(
                     computeCumulativeDueAsOf(lease, null, officeRow, month, year, rowCache, entryCache));
+
+            if (officeRow.getPrepaidOfficeRent() != null && officeRow.getPrepaidOfficeRent().compareTo(BigDecimal.ZERO) > 0) {
+                Optional<AmortizationEntry> officeEntry = entryRepo.findByLeaseContractIdAndStampDutyFalseAndUtilityFalseAndReportMonthAndReportYear(
+                        lease.getId(), month, year);
+                if (officeEntry.isPresent() && officeEntry.get().getCumulativeExpense() != null && officeEntry.get().getCumulativeExpense().compareTo(BigDecimal.ZERO) > 0) {
+                    officeRow.setCumulativeExpense(officeEntry.get().getCumulativeExpense().setScale(SCALE, RM));
+                } else {
+                    officeRow.setCumulativeExpense(computePriorCumulativeExpense(lease, null, false, month, year, rowCache, entryCache));
+                }
+            } else {
+                officeRow.setCumulativeExpense(BigDecimal.ZERO.setScale(SCALE, RM));
+            }
+
             if (!lease.isHasStampDuty() || lease.getStampDutyContract() == null) {
                 officeRow.setTotal(officeRow.getRentExpenseForMonth());
             }
@@ -583,6 +599,19 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
                         computeDueDifferenceAsOf(lease, sd, sdRow, month, year, rowCache, entryCache));
                 sdRow.setDueAsOf(
                         computeCumulativeDueAsOf(lease, sd, sdRow, month, year, rowCache, entryCache));
+
+                if (sdRow.getPrepaidOfficeRent() != null && sdRow.getPrepaidOfficeRent().compareTo(BigDecimal.ZERO) > 0) {
+                    Optional<AmortizationEntry> sdEntry = entryRepo.findByStampDutyContractIdAndStampDutyTrueAndReportMonthAndReportYear(
+                            sd.getId(), month, year);
+                    if (sdEntry.isPresent() && sdEntry.get().getCumulativeExpense() != null && sdEntry.get().getCumulativeExpense().compareTo(BigDecimal.ZERO) > 0) {
+                        sdRow.setCumulativeExpense(sdEntry.get().getCumulativeExpense().setScale(SCALE, RM));
+                    } else {
+                        sdRow.setCumulativeExpense(computePriorCumulativeExpense(lease, sd, false, month, year, rowCache, entryCache));
+                    }
+                } else {
+                    sdRow.setCumulativeExpense(BigDecimal.ZERO.setScale(SCALE, RM));
+                }
+
                 rows.add(sdRow);
 
                 // Total = officeRentExpense + stampDutyRentExpense (on SD row only)
@@ -694,6 +723,17 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
         row.setRentExpenseAsOf(utilityExpense);
         row.setDueDifferenceAsOf(BigDecimal.ZERO);
         row.setDueAsOf(row.getDueForMonth());
+
+        if (prepaid.compareTo(BigDecimal.ZERO) > 0) {
+            if (saved && savedEntry.get().getCumulativeExpense() != null && savedEntry.get().getCumulativeExpense().compareTo(BigDecimal.ZERO) > 0) {
+                row.setCumulativeExpense(savedEntry.get().getCumulativeExpense().setScale(SCALE, RM));
+            } else {
+                row.setCumulativeExpense(computePriorCumulativeExpense(lease, null, true, month, year, null, null));
+            }
+        } else {
+            row.setCumulativeExpense(BigDecimal.ZERO.setScale(SCALE, RM));
+        }
+
         row.setTotal(utilityExpense);
         row.setReportMonth(month);
         row.setReportYear(year);
@@ -991,68 +1031,125 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
         LeaseContract lease = leaseRepo.findById(leaseId)
                 .orElseThrow(() -> new RuntimeException("Lease not found: " + leaseId));
 
-        LocalDate startDate = lease.getContractStartDate();
+        LocalDate startDate = (utility && lease.getUtilityContractStartDate() != null)
+                ? lease.getUtilityContractStartDate()
+                : lease.getContractStartDate();
 
         // ── 1. Effective contract end date check ──
-        LocalDate effectiveEndDate = (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null)
-                ? (lease.getStampDutyContract().getPaymentPaidToDate() != null
-                        ? lease.getStampDutyContract().getPaymentPaidToDate()
-                        : lease.getContractEndDate())
-                : (lease.getPaymentPaidToDate() != null
-                        ? lease.getPaymentPaidToDate()
-                        : lease.getContractEndDate());
+        LocalDate effectiveEndDate = utility
+                ? (lease.getUtilityContractEndDate() != null ? lease.getUtilityContractEndDate() : lease.getContractEndDate())
+                : ((stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null)
+                        ? (lease.getStampDutyContract().getPaymentPaidToDate() != null
+                                ? lease.getStampDutyContract().getPaymentPaidToDate()
+                                : lease.getContractEndDate())
+                        : (lease.getPaymentPaidToDate() != null
+                                ? lease.getPaymentPaidToDate()
+                                : lease.getContractEndDate()));
 
-        LocalDate targetStart = LocalDate.of(targetYear, targetMonth, 1);
-        if (targetStart.isAfter(effectiveEndDate)) {
-            return new PrepaidSuggestionResponse(BigDecimal.ZERO, true, null, null, null);
+        YearMonth targetYm = YearMonth.of(targetYear, targetMonth);
+        YearMonth effectiveEndYm = effectiveEndDate != null ? YearMonth.from(effectiveEndDate) : null;
+        YearMonth startYm = YearMonth.from(startDate);
+
+        if (targetYm.isBefore(startYm)) {
+            return new PrepaidSuggestionResponse(
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    false,
+                    null,
+                    null,
+                    null,
+                    true,
+                    "The report month is before contract start date.");
+        }
+
+        if (effectiveEndYm != null && targetYm.isAfter(effectiveEndYm)) {
+            return new PrepaidSuggestionResponse(
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    false,
+                    null,
+                    null,
+                    null,
+                    true,
+                    "The report month is beyond payment up to date.");
         }
 
         // ── 2. Check if ANY prepaid has EVER been saved for this contract ──
-        // We ignore the target month and check globally for any prepaid entry.
+        // We ignore the target month and check globally for any positive prepaid entry.
         boolean anyPrepaidEverSaved = false;
         AmortizationEntry firstEntry = null;
 
         if (utility) {
             var list = entryRepo.findFirstPrepaidUtilityEntry(lease.getId());
-            if (!list.isEmpty()) {
+            if (!list.isEmpty() && list.get(0).getPrepaidOfficeRent() != null
+                    && list.get(0).getPrepaidOfficeRent().compareTo(BigDecimal.ZERO) > 0) {
                 AmortizationEntry utilityFirstEntry = list.get(0);
-                return new PrepaidSuggestionResponse(BigDecimal.ZERO, true,
-                    utilityFirstEntry.getReportMonth(), utilityFirstEntry.getReportYear(),
-                    utilityFirstEntry.getPrepaidOfficeRent());
+                return new PrepaidSuggestionResponse(
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        true,
+                        utilityFirstEntry.getReportMonth(),
+                        utilityFirstEntry.getReportYear(),
+                        utilityFirstEntry.getPrepaidOfficeRent(),
+                        false,
+                        null);
             }
         } else if (stampDuty && lease.isHasStampDuty() && lease.getStampDutyContract() != null) {
             StampDutyContract sd = lease.getStampDutyContract();
-            // Find the very first prepaid entry ever saved (no month limit)
-            var list = entryRepo.findFirstPrepaidSdEntryAtOrBefore(sd.getId(), 9999, 12); // far future to get earliest
-            anyPrepaidEverSaved = !list.isEmpty();
-            if (anyPrepaidEverSaved)
+            var list = entryRepo.findFirstPrepaidSdEntryAtOrBefore(sd.getId(), 9999, 12);
+            if (!list.isEmpty() && list.get(0).getPrepaidOfficeRent() != null
+                    && list.get(0).getPrepaidOfficeRent().compareTo(BigDecimal.ZERO) > 0) {
+                anyPrepaidEverSaved = true;
                 firstEntry = list.get(0);
+            }
         } else {
             var list = entryRepo.findFirstPrepaidOfficeEntryAtOrBefore(lease.getId(), 9999, 12);
-            anyPrepaidEverSaved = !list.isEmpty();
-            if (anyPrepaidEverSaved)
+            if (!list.isEmpty() && list.get(0).getPrepaidOfficeRent() != null
+                    && list.get(0).getPrepaidOfficeRent().compareTo(BigDecimal.ZERO) > 0) {
+                anyPrepaidEverSaved = true;
                 firstEntry = list.get(0);
+            }
         }
 
-        if (anyPrepaidEverSaved) {
-            // Show toast with the FIRST time it was filled (even if target month is
-            // earlier)
+        if (anyPrepaidEverSaved && firstEntry != null) {
             int filledM = firstEntry.getReportMonth();
             int filledY = firstEntry.getReportYear();
-            BigDecimal filledAmt = firstEntry.getPrepaidOfficeRent() != null
-                    ? firstEntry.getPrepaidOfficeRent()
-                    : BigDecimal.ZERO;
+            BigDecimal filledAmt = firstEntry.getPrepaidOfficeRent();
 
             return new PrepaidSuggestionResponse(
+                    BigDecimal.ZERO,
                     BigDecimal.ZERO,
                     true,
                     filledM,
                     filledY,
-                    filledAmt);
+                    filledAmt,
+                    false,
+                    null);
         }
 
-        // ── 3. No prepaid ever saved → do normal suggestion calculation ──
-               // ── 3. No prepaid ever saved → do normal suggestion calculation ──
+        // ── 3. Utility calculation ──
+        if (utility) {
+            LocalDate utilityStart = lease.getUtilityContractStartDate() != null ? lease.getUtilityContractStartDate() : lease.getContractStartDate();
+            LocalDate utilityEnd = lease.getUtilityContractEndDate() != null ? lease.getUtilityContractEndDate() : lease.getContractEndDate();
+            BigDecimal legacyMonthlyUtility = lease.getUtilityPayment() != null ? lease.getUtilityPayment() : BigDecimal.ZERO;
+            BigDecimal fullUtilPayment = lease.getUtilityPaymentFullPayment() != null && lease.getUtilityPaymentFullPayment().compareTo(BigDecimal.ZERO) > 0
+                    ? lease.getUtilityPaymentFullPayment()
+                    : legacyMonthlyUtility.multiply(calcTotalNumberOfYears(utilityStart, utilityEnd)).multiply(BigDecimal.valueOf(12));
+            BigDecimal totalYears = calcTotalNumberOfYears(utilityStart, utilityEnd);
+            BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12));
+            BigDecimal monthlyUtil = divisor.compareTo(BigDecimal.ZERO) > 0 ? fullUtilPayment.divide(divisor, MONEY_SCALE, MONEY_RM) : legacyMonthlyUtility;
+
+            int monthsElapsed = (targetYear - utilityStart.getYear()) * 12 + targetMonth - utilityStart.getMonthValue();
+            int daysInStartMonth = java.time.YearMonth.from(utilityStart).lengthOfMonth();
+            BigDecimal firstExpense = monthlyUtil.multiply(BigDecimal.valueOf(daysInStartMonth - utilityStart.getDayOfMonth() + 1))
+                    .divide(BigDecimal.valueOf(daysInStartMonth), SCALE, RM);
+            BigDecimal priorExpense = monthsElapsed <= 0 ? BigDecimal.ZERO
+                    : firstExpense.add(monthlyUtil.multiply(BigDecimal.valueOf(monthsElapsed - 1))).setScale(SCALE, RM);
+            BigDecimal suggested = fullUtilPayment.subtract(priorExpense).setScale(SCALE, RM).max(BigDecimal.ZERO);
+            return new PrepaidSuggestionResponse(suggested, priorExpense, false, null, null, null, false, null);
+        }
+
+        // ── 4. Office / Stamp Duty calculation ──
         BigDecimal annualRent;
         LocalDate paidToDate;
         BigDecimal fullPayment = BigDecimal.ZERO;
@@ -1091,13 +1188,14 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
 
         while (current.isBefore(target)) {
             AmortizationReportRow row = buildRow(lease, sdForBuild, current.getMonthValue(), current.getYear());
-            previousSum = previousSum.add(row.getDueForMonth().add(row.getRentMinusDue()));
+            previousSum = previousSum.add(safe(row.getDueForMonth()).add(safe(row.getRentMinusDue())));
             current = current.plusMonths(1);
         }
 
+        BigDecimal cumulativeExpense = previousSum.setScale(SCALE, RM);
         BigDecimal suggested = totalPaid.subtract(previousSum).setScale(SCALE, RM).max(BigDecimal.ZERO);
 
-        return new PrepaidSuggestionResponse(suggested, false, null, null, null);
+        return new PrepaidSuggestionResponse(suggested, cumulativeExpense, false, null, null, null, false, null);
     }
 
     /**
@@ -1486,6 +1584,47 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
     }
 
     /**
+     * Computes the cumulative expense prior to targetMonth/targetYear:
+     * Sum of (dueForMonth + rentMinusDue) for all months from contract start strictly before targetMonth/targetYear.
+     */
+    private BigDecimal computePriorCumulativeExpense(
+            LeaseContract lease, StampDutyContract sd, boolean isUtility,
+            int targetMonth, int targetYear,
+            Map<String, AmortizationReportRow> rowCache, InMemoryEntryCache entryCache) {
+        if (isUtility) {
+            LocalDate utilityStart = lease.getUtilityContractStartDate() != null ? lease.getUtilityContractStartDate() : lease.getContractStartDate();
+            LocalDate utilityEnd = lease.getUtilityContractEndDate() != null ? lease.getUtilityContractEndDate() : lease.getContractEndDate();
+            BigDecimal legacyMonthlyUtility = lease.getUtilityPayment() != null ? lease.getUtilityPayment() : BigDecimal.ZERO;
+            BigDecimal fullUtilPayment = lease.getUtilityPaymentFullPayment() != null && lease.getUtilityPaymentFullPayment().compareTo(BigDecimal.ZERO) > 0
+                    ? lease.getUtilityPaymentFullPayment()
+                    : legacyMonthlyUtility.multiply(calcTotalNumberOfYears(utilityStart, utilityEnd)).multiply(BigDecimal.valueOf(12));
+            BigDecimal totalYears = calcTotalNumberOfYears(utilityStart, utilityEnd);
+            BigDecimal divisor = totalYears.multiply(BigDecimal.valueOf(12));
+            BigDecimal monthlyUtil = divisor.compareTo(BigDecimal.ZERO) > 0 ? fullUtilPayment.divide(divisor, MONEY_SCALE, MONEY_RM) : legacyMonthlyUtility;
+
+            int monthsElapsed = (targetYear - utilityStart.getYear()) * 12 + targetMonth - utilityStart.getMonthValue();
+            int daysInStartMonth = java.time.YearMonth.from(utilityStart).lengthOfMonth();
+            BigDecimal firstExpense = monthlyUtil.multiply(BigDecimal.valueOf(daysInStartMonth - utilityStart.getDayOfMonth() + 1))
+                    .divide(BigDecimal.valueOf(daysInStartMonth), SCALE, RM);
+            return monthsElapsed <= 0 ? BigDecimal.ZERO
+                    : firstExpense.add(monthlyUtil.multiply(BigDecimal.valueOf(monthsElapsed - 1))).setScale(SCALE, RM);
+        }
+
+        LocalDate contractStart = lease.getContractStartDate();
+        YearMonth current = YearMonth.of(contractStart.getYear(), contractStart.getMonthValue());
+        YearMonth target = YearMonth.of(targetYear, targetMonth);
+
+        BigDecimal sum = BigDecimal.ZERO;
+        Map<String, AmortizationReportRow> cache = rowCache != null ? rowCache : new java.util.HashMap<>();
+        while (current.isBefore(target)) {
+            AmortizationReportRow r = buildRowForAnyMonth(lease, sd, current.getMonthValue(), current.getYear(), cache, entryCache);
+            sum = sum.add(safe(r.getDueForMonth()).add(safe(r.getRentMinusDue())));
+            current = current.plusMonths(1);
+        }
+        return sum.setScale(SCALE, RM);
+    }
+
+    /**
      * Helper: builds the row for ANY month, automatically using the correct
      * contract
      * (previous contract if the month is before the current lease start date).
@@ -1592,6 +1731,7 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
             BigDecimal rentExpenseOverride, // null = auto-calculated
             BigDecimal dueForMonthInput, // nullable, used as hint only
             BigDecimal prepaidOfficeRent,
+            BigDecimal cumulativeExpense,
             BigDecimal additionalExpense,
             Integer entryDay) {
 
@@ -1626,6 +1766,18 @@ private boolean isContractExtension(LeaseContract lease, StampDutyContract sd) {
         BigDecimal addlExp = roundCalc(additionalExpense != null ? additionalExpense : BigDecimal.ZERO);
         entry.setPrepaidOfficeRent(prepaid);
         entry.setAdditionalExpense(addlExp);
+
+        BigDecimal cumExp;
+        if (prepaid.compareTo(BigDecimal.ZERO) > 0) {
+            if (cumulativeExpense != null && cumulativeExpense.compareTo(BigDecimal.ZERO) > 0) {
+                cumExp = roundCalc(cumulativeExpense);
+            } else {
+                cumExp = computePriorCumulativeExpense(lease, sd, isUtility, month, year, null, null);
+            }
+        } else {
+            cumExp = BigDecimal.ZERO;
+        }
+        entry.setCumulativeExpense(cumExp);
 
         // Recalculate outstanding balance as of prior month
         BigDecimal outstandingPrior = isUtility

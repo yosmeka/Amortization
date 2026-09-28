@@ -40,7 +40,7 @@ function fmtPrice(n: number | null | undefined) {
     if (n == null || isNaN(n)) return "—";
     return n.toLocaleString("en-ET", {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 4
+        maximumFractionDigits: 2
     });
 }
 

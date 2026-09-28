@@ -51,6 +51,7 @@ public class AmortizationController {
                 req.getRentExpenseForMonth(),
                 req.getDueForMonth(),
                 req.getPrepaidOfficeRent(),
+                req.getCumulativeExpense(),
                 req.getAdditionalExpense() != null ? req.getAdditionalExpense() : BigDecimal.ZERO,
                 req.getEntryDay()
         );
@@ -84,6 +85,7 @@ public class AmortizationController {
         private BigDecimal rentExpenseForMonth;
         private BigDecimal dueForMonth;
         private BigDecimal prepaidOfficeRent;
+        private BigDecimal cumulativeExpense;
         private BigDecimal additionalExpense;
         private Integer entryDay;
     }

@@ -321,6 +321,8 @@ export async function exportMonthlyReportToExcel(
     }
 
     const monthName = MONTHS[month - 1];
+    const prevMonthName = month === 1 ? MONTHS[11] : MONTHS[month - 2];
+    const prevYear = month === 1 ? year - 1 : year;
     const categoryLabel = category ? `for ${category}` : "for All Categories";
 
     const workbook = new ExcelJS.Workbook();
@@ -355,21 +357,22 @@ export async function exportMonthlyReportToExcel(
         { width: 16 },  // T - Full Payment
         { width: 16 },  // U - Total Payment Paid
         { width: 16 },  // V - Remaining Payment
-        { width: 18 },  // W - Outstanding Balance (Prev)
-        { width: 16 },  // X - Rent Expense
-        { width: 16 },  // Y - Due
+        { width: 22 },  // W - Outstanding Balance (prev)
+        { width: 18 },  // X - Rent Expense – [Month] [Year]
+        { width: 16 },  // Y - Due for [Month] [Year]
         { width: 16 },  // Z - Rent Expense − Due
-        { width: 16 },  // AA - Rent Expense As Of
-        { width: 16 },  // AB - Due Difference As Of
-        { width: 16 },  // AC - Due As Of
+        { width: 18 },  // AA - Rent Expense As Of [Month] [Year]
+        { width: 19 },  // AB - Due Difference As Of [Month] [Year]
+        { width: 19 },  // AC - Cumulative Due As Of [Month] [Year]
         { width: 16 },  // AD - Prepaid
-        { width: 16 },  // AE - Additional Expense
-        { width: 10 },  // AF - Day
-        { width: 18 },  // AG - Outstanding End
+        { width: 18 },  // AE - Cumulative Expense
+        { width: 16 },  // AF - Additional Expense
+        { width: 10 },  // AG - Day
+        { width: 19 },  // AH - Outstanding End [Month] [Year]
     ];
 
-    // Row 2: Zemen Bank S.C (B2:AG2)
-    ws.mergeCells("B2:AG2");
+    // Row 2: Zemen Bank S.C (B2:AH2)
+    ws.mergeCells("B2:AH2");
     const b2 = ws.getCell("B2");
     b2.value = "Zemen Bank S.C";
     b2.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FF000000" } };
@@ -377,8 +380,8 @@ export async function exportMonthlyReportToExcel(
     b2.fill = fillSolid("EEE8AA");
     ws.getRow(2).height = 24;
 
-    // Row 3: Monthly Amortization Report for [category] (B3:AG3)
-    ws.mergeCells("B3:AG3");
+    // Row 3: Monthly Amortization Report for [category] (B3:AH3)
+    ws.mergeCells("B3:AH3");
     const b3 = ws.getCell("B3");
     b3.value = `Monthly Amortization Report ${categoryLabel}`;
     b3.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FF000000" } };
@@ -386,8 +389,8 @@ export async function exportMonthlyReportToExcel(
     b3.fill = fillSolid("EEE8AA");
     ws.getRow(3).height = 24;
 
-    // Row 4: For the month of [Month Year] (B4:AG4)
-    ws.mergeCells("B4:AG4");
+    // Row 4: For the month of [Month Year] (B4:AH4)
+    ws.mergeCells("B4:AH4");
     const b4 = ws.getCell("B4");
     b4.value = `For the month of ${monthName} ${year}`;
     b4.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF000000" } };
@@ -396,23 +399,33 @@ export async function exportMonthlyReportToExcel(
     ws.getRow(4).height = 22;
 
     for (let r = 2; r <= 4; r++) {
-        for (let c = 2; c <= 33; c++) {
+        for (let c = 2; c <= 34; c++) {
             ws.getCell(r, c).fill = fillSolid("EEE8AA");
         }
     }
 
-    // Row 5: Column Headers (B5 to AG5)
+    // Row 5: Column Headers (B5 to AH5)
     const headers = [
         "S/No", "Box File No", "Category of Rent", "Branch Name", "Branch Code", "Owner Name",
         "Contract Start", "Contract End", "Total No. of Years", "Payment Paid to Date",
         "Year with Fraction", "Meter Square", "Price/m² Before VAT", "VAT Rate", "Price/m² After VAT",
         "Monthly Rent with VAT", "Total Annual Rent", "Utility / Service Charge", "Full Payment",
-        "Total Payment Paid", "Remaining Payment", "Outstanding Balance (Prev)", "Rent Expense",
-        "Due", "Rent Expense − Due", "Rent Expense As Of", "Due Difference As Of", "cumulative Due As Of", "Prepaid",
-        "Additional Expense", "Day", "Outstanding End"
+        "Total Payment Paid", "Remaining Payment",
+        `Outstanding Balance (prev) ${prevMonthName} ${prevYear}`,
+        `Rent Expense – ${monthName} ${year}`,
+        `Due for ${monthName} ${year}`,
+        "Rent Expense − Due",
+        `Rent Expense As Of ${monthName} ${year}`,
+        `Due Difference As Of ${monthName} ${year}`,
+        `Cumulative Due As Of ${monthName} ${year}`,
+        "Prepaid",
+        "Cumulative Expense",
+        "Additional Expense",
+        "Day",
+        `Outstanding End ${monthName} ${year}`
     ];
 
-    ws.getRow(5).height = 36;
+    ws.getRow(5).height = 42;
     headers.forEach((h, idx) => {
         const cell = ws.getCell(5, idx + 2);
         cell.value = h;
@@ -464,9 +477,10 @@ export async function exportMonthlyReportToExcel(
             r.dueDifferenceAsOf ?? 0,                     // AB: Due Difference As Of
             r.dueAsOf ?? 0,                               // AC: Due As Of
             r.prepaidOfficeRent ?? 0,                     // AD: Prepaid
-            r.additionalExpense ?? 0,                     // AE: Additional Expense
-            r.entryDay ?? "",                             // AF: Day
-            r.outstandingBalanceEndOfMonth ?? 0           // AG: Outstanding End
+            r.cumulativeExpense ?? 0,                     // AE: Cumulative Expense
+            r.additionalExpense ?? 0,                     // AF: Additional Expense
+            r.entryDay ?? "",                             // AG: Day
+            r.outstandingBalanceEndOfMonth ?? 0           // AH: Outstanding End
         ];
 
         rowValues.forEach((val, cIdx) => {
@@ -475,7 +489,7 @@ export async function exportMonthlyReportToExcel(
             cell.font = { name: "Calibri", size: 10 };
             cell.border = thinBorder;
 
-            if ([0, 1, 2, 4, 6, 7, 9, 30].includes(cIdx)) {
+            if ([0, 1, 2, 4, 6, 7, 9, 31].includes(cIdx)) {
                 cell.alignment = { horizontal: "center", vertical: "middle" };
             } else if ([3, 5].includes(cIdx)) {
                 cell.alignment = { horizontal: "left", vertical: "middle" };
@@ -488,7 +502,7 @@ export async function exportMonthlyReportToExcel(
                 cell.alignment = { horizontal: "right", vertical: "middle" };
             } else if (typeof val === "number") {
                 cell.alignment = { horizontal: "right", vertical: "middle" };
-                cell.numFmt = [12, 14, 15, 21, 22, 23, 24, 25, 26, 27, 28, 31].includes(cIdx) ? "#,##0.0000" : "#,##0.00";
+                cell.numFmt = "#,##0.00";
             }
         });
 
@@ -512,8 +526,8 @@ export async function exportMonthlyReportToExcel(
     totalRow.getCell(3).border = accountingTotalBorder;
     totalRow.getCell(3).fill = fillSolid("D3D3D3");
 
-    const numColsToSum = [10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33];
-    for (let c = 4; c <= 33; c++) {
+    const numColsToSum = [10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34];
+    for (let c = 4; c <= 34; c++) {
         const cell = totalRow.getCell(c);
         let colLetter = "";
         let tempC = c;
@@ -527,7 +541,7 @@ export async function exportMonthlyReportToExcel(
             cell.value = {
                 formula: `SUM(${colLetter}${startDataRow}:${colLetter}${endDataRow})`
             };
-            cell.numFmt = [14, 16, 17, 23, 24, 25, 26, 27, 28, 29, 30, 33].includes(c) ? "#,##0.0000" : "#,##0.00";
+            cell.numFmt = "#,##0.00";
         } else {
             cell.value = 0;
         }
@@ -586,7 +600,7 @@ export async function exportMonthlyReportToExcel(
     rExp.getCell(6).value = { formula: rentExpCellRef };
     rExp.getCell(6).font = { name: "Calibri", size: 10 };
     rExp.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
-    rExp.getCell(6).numFmt = "#,##0.0000";
+    rExp.getCell(6).numFmt = "#,##0.00";
     rExp.getCell(6).border = darkThinBorder;
 
     rExp.getCell(7).value = "";
@@ -604,7 +618,7 @@ export async function exportMonthlyReportToExcel(
     rPay.getCell(7).value = { formula: dueCellRef };
     rPay.getCell(7).font = { name: "Calibri", size: 10 };
     rPay.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    rPay.getCell(7).numFmt = "#,##0.0000";
+    rPay.getCell(7).numFmt = "#,##0.00";
     rPay.getCell(7).border = darkThinBorder;
 
     // Prepaid Row
@@ -619,7 +633,7 @@ export async function exportMonthlyReportToExcel(
     rPrep.getCell(7).value = { formula: `${rentExpCellRef}-${dueCellRef}` };
     rPrep.getCell(7).font = { name: "Calibri", size: 10 };
     rPrep.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    rPrep.getCell(7).numFmt = "#,##0.0000";
+    rPrep.getCell(7).numFmt = "#,##0.00";
     rPrep.getCell(7).border = darkThinBorder;
 
     // Total Row
@@ -634,7 +648,7 @@ export async function exportMonthlyReportToExcel(
     };
     rTot.getCell(6).font = { name: "Calibri", size: 10, bold: true };
     rTot.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
-    rTot.getCell(6).numFmt = "#,##0.0000";
+    rTot.getCell(6).numFmt = "#,##0.00";
     rTot.getCell(6).fill = fillSolid("F2DCDB");
     rTot.getCell(6).border = accountingTotalBorder;
 
@@ -643,7 +657,7 @@ export async function exportMonthlyReportToExcel(
     };
     rTot.getCell(7).font = { name: "Calibri", size: 10, bold: true };
     rTot.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    rTot.getCell(7).numFmt = "#,##0.0000";
+    rTot.getCell(7).numFmt = "#,##0.00";
     rTot.getCell(7).fill = fillSolid("F2DCDB");
     rTot.getCell(7).border = accountingTotalBorder;
 
@@ -1433,8 +1447,9 @@ export async function exportExpenseUploadToExcel(
         c5.alignment = { horizontal: "center", vertical: "middle" };
 
         rIdx++;
+      
     });
-
+   
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

@@ -348,7 +348,7 @@ function NewLeasePageInner() {
                     </div>
                     <div className="form-group">
                         <label>Price per m² (Before VAT) *</label>
-                        <input type="number" step="0.0001" className="form-control" required
+                        <input type="number" step="0.01" className="form-control" required
                             value={form.meterSquarePriceBeforeVat || ""}
                             onChange={e => set("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                     </div>
@@ -499,7 +499,7 @@ function NewLeasePageInner() {
                             </div>
                             <div className="form-group">
                                 <label>Price per m² (Before VAT) *</label>
-                                <input type="number" step="0.0001" className="form-control"
+                                <input type="number" step="0.01" className="form-control"
                                     value={form.stampDuty?.meterSquarePriceBeforeVat || ""}
                                     onChange={e => setSD("meterSquarePriceBeforeVat", parseFloat(e.target.value) || 0)} />
                             </div>
@@ -602,8 +602,8 @@ function LivePreview({ form }: { form: LeaseContractRequest }) {
             padding: "0.75rem 1rem", marginTop: "1rem",
             display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "0.5rem",
         }}>
-            <PreviewItem label="Price/m² after VAT" value={priceAfterVat} decimals={4} />
-            <PreviewItem label="Monthly Rent with VAT" value={monthly} decimals={4} />
+            <PreviewItem label="Price/m² after VAT" value={priceAfterVat} />
+            <PreviewItem label="Monthly Rent with VAT" value={monthly} />
             <PreviewItem label="Total Annual Rent" value={annual} />
         </div>
     );
@@ -632,7 +632,7 @@ function StampDutyPreview({ sd, contractStartDate, paymentPaidToDate }: {
             display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "0.5rem",
         }}>
             <PreviewItem label="Full Payment (Stamp Duty)" value={fullPayment} />
-            <PreviewItem label="Monthly Rent (No VAT)" value={monthly} decimals={4} />
+            <PreviewItem label="Monthly Rent (No VAT)" value={monthly} />
             <PreviewItem label="Annual Rent (Stamp Duty)" value={monthly * 12} />
         </div>
     );

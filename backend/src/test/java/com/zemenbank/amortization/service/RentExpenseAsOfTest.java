@@ -191,9 +191,9 @@ class RentExpenseAsOfTest {
     }
 
     @Test
-    void testPricePerMeterSquare_SupportsFourDecimalPlaces() {
+    void testPricePerMeterSquare_SupportsTwoDecimalPlaces() {
         contract.setMeterSquare(new BigDecimal("100.00"));
-        contract.setMeterSquarePriceBeforeVat(new BigDecimal("80.1234"));
+        contract.setMeterSquarePriceBeforeVat(new BigDecimal("80.12"));
         contract.setVatRate(new BigDecimal("0.1500"));
 
         List<AmortizationReportRow> rows = amortizationService.generateReport(5, 2026, null);
@@ -201,10 +201,10 @@ class RentExpenseAsOfTest {
         assertFalse(rows.isEmpty());
         AmortizationReportRow row = rows.get(0);
 
-        assertEquals(new BigDecimal("80.1234"), row.getMeterSquarePriceBeforeVat(), "Price before VAT should retain 4 decimal places");
-        // 80.1234 * 1.15 = 92.14191 -> 92.1419 with 4 decimals
-        assertEquals(new BigDecimal("92.1419"), row.getMeterSquarePriceAfterVat(), "Price after VAT should be rounded to 4 decimal places");
-        // Monthly rent with VAT: 92.1419 * 100.00 = 9214.1900
-        assertEquals(new BigDecimal("9214.1900"), row.getMonthlyRentWithVat(), "Monthly rent with VAT should be rounded to 4 decimal places");
+        assertEquals(new BigDecimal("80.12"), row.getMeterSquarePriceBeforeVat(), "Price before VAT should retain 2 decimal places");
+        // 80.12 * 1.15 = 92.138 -> 92.14 with 2 decimals
+        assertEquals(new BigDecimal("92.14"), row.getMeterSquarePriceAfterVat(), "Price after VAT should be rounded to 2 decimal places");
+        // Monthly rent with VAT: 92.14 * 100.00 = 9214.00
+        assertEquals(new BigDecimal("9214.00"), row.getMonthlyRentWithVat(), "Monthly rent with VAT should be rounded to 2 decimal places");
     }
 }

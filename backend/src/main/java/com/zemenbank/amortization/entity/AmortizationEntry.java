@@ -92,6 +92,11 @@ public class AmortizationEntry {
     @Builder.Default
     private BigDecimal additionalExpense = BigDecimal.ZERO;
 
+    // === Column: Cumulative Expense (sum of prior dues + rent expense - due) ===
+    @Column(precision = 18, scale = 8)
+    @Builder.Default
+    private BigDecimal cumulativeExpense = BigDecimal.ZERO;
+
     // === Column 22: Outstanding Balance end of month ===
     @Column(precision = 18, scale = 8)
     @Builder.Default

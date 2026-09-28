@@ -61,7 +61,7 @@ public class LeaseContract {
     private BigDecimal meterSquare;
 
     // === Column 10 – Meter Square Price Before VAT ===
-    @Column(nullable = false, precision = 18, scale = 4)
+    @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal meterSquarePriceBeforeVat;
 
     // === Column 11 – VAT Rate (default 15%) ===

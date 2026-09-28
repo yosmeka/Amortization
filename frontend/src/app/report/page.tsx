@@ -15,16 +15,16 @@ function fmt(n: number | undefined | null) {
 }
 function fmtPrice(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
-    return n.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function fmt4(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
-    return n.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-/** 8-decimal formatting for amortization chain (outstanding, prorated rent, due, prepaid). */
+/** 2-decimal formatting for amortization chain (outstanding, prorated rent, due, prepaid). */
 function fmtCalc(n: number | undefined | null) {
     if (n == null || isNaN(n)) return "—";
-    return n.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function fmtDate(s: string | undefined | null) {
     if (!s) return "—";
@@ -122,6 +122,7 @@ export default function ReportPage() {
         rentExpense: string;   // override; empty = auto-calculate
         due: string;
         prepaid: string;
+        cumulativeExpense: string;
         additionalExpense: string;
         entryDay: string;     // 1-31 or empty
     }>>({});
@@ -141,6 +142,7 @@ export default function ReportPage() {
                     rentExpense: r.rentExpenseOverridden ? (r.rentExpenseForMonth?.toString() ?? "") : "",
                     due: r.dueForMonthOverridden ? (r.dueForMonth?.toString() ?? "") : "",
                     prepaid: r.prepaidOfficeRent?.toString() ?? "0",
+                    cumulativeExpense: r.cumulativeExpense?.toString() ?? "0",
                     additionalExpense: r.additionalExpense?.toString() ?? "0",
                     entryDay: r.entryDay?.toString() ?? "",
                 };
@@ -158,7 +160,7 @@ export default function ReportPage() {
         const key = `${row.leaseContractId}-${row.stampDutyRow}-${row.utilityPaymentRow}`;
         try {
             const data = row.utilityPaymentRow
-                ? await fetchPrepaidSuggestion(row.leaseContractId, month, year, false, true).then(serverData => serverData.alreadyFilled
+                ? await fetchPrepaidSuggestion(row.leaseContractId, month, year, false, true).then(serverData => (serverData.alreadyFilled || serverData.beyondPaymentPaidToDate)
                     ? serverData
                     : (() => {
                     const start = new Date(row.contractStartDate);
@@ -168,19 +170,34 @@ export default function ReportPage() {
                     const priorExpense = monthsElapsed <= 0 ? 0 : firstExpense + row.monthlyRentWithVat * (monthsElapsed - 1);
                     return {
                         suggestedPrepaid: Math.max(0, row.fullPayment - priorExpense),
+                        cumulativeExpense: priorExpense,
                         alreadyFilled: false,
+                        beyondPaymentPaidToDate: false,
                         filledMonth: undefined,
                         filledYear: undefined,
                         filledAmount: undefined,
+                        message: undefined,
                     };
                 })())
                 : await fetchPrepaidSuggestion(row.leaseContractId, month, year, row.stampDutyRow);
 
+            if (data.beyondPaymentPaidToDate) {
+                setToast({
+                    type: "error",
+                    message: data.message || "The report month is beyond payment up to date.",
+                });
+                setTimeout(() => setToast(null), 5000);
+
+                handleEdit(key, "prepaid", "0");
+                handleEdit(key, "cumulativeExpense", "0");
+                return;
+            }
+
             if (data.alreadyFilled) {
-                const monthName = MONTHS[(data.filledMonth || 1) - 1];
+                const monthName = data.filledMonth ? MONTHS[data.filledMonth - 1] : "";
                 const amount = data.filledAmount
-                    ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 4, maximumFractionDigits: 4 })
-                    : "0.0000";
+                    ? data.filledAmount.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : "0.00";
 
                 setToast({
                     type: "success",
@@ -191,10 +208,13 @@ export default function ReportPage() {
                 setTimeout(() => setToast(null), 5000);
 
                 handleEdit(key, "prepaid", "0");
-            } else {
-                // Normal suggestion
-                handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
+                handleEdit(key, "cumulativeExpense", "0");
+                return;
             }
+
+            // Normal suggestion
+            handleEdit(key, "prepaid", data.suggestedPrepaid?.toString() ?? "0");
+            handleEdit(key, "cumulativeExpense", data.cumulativeExpense?.toString() ?? "0");
         } catch {
             setToast({
                 type: "error",
@@ -206,7 +226,7 @@ export default function ReportPage() {
 
     const handleSave = async (row: AmortizationReportRow) => {
         const key = `${row.leaseContractId}-${row.stampDutyRow}-${row.utilityPaymentRow}`;
-        const e = edits[key] ?? { rentExpense: "", due: "0", prepaid: "0", additionalExpense: "0", entryDay: "" };
+        const e = edits[key] ?? { rentExpense: "", due: "0", prepaid: "0", cumulativeExpense: "0", additionalExpense: "0", entryDay: "" };
         setSaving(key);
         try {
             await saveEntry(
@@ -215,6 +235,7 @@ export default function ReportPage() {
                     rentExpenseForMonth: e.rentExpense !== "" ? parseFloat(e.rentExpense) : null,
                     dueForMonth: e.due !== "" ? parseFloat(e.due) : null,
                     prepaidOfficeRent: parseFloat(e.prepaid) || 0,
+                    cumulativeExpense: parseFloat(e.cumulativeExpense) || 0,
                     additionalExpense: parseFloat(e.additionalExpense) || 0,
                     entryDay: e.entryDay !== "" ? parseInt(e.entryDay) : null,
                 }
@@ -471,6 +492,7 @@ export default function ReportPage() {
                                     Cumulative Due As Of {MONTHS[month - 1]} {year}
                                 </th>
                                 <th style={{ background: "#e0f2fe", color: "#075985" }}>Prepaid Office Rent ✏️</th>
+                                <th style={{ background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>Cumulative Expense</th>
                                 {/* <th style={{ background: "#fce7f3", color: "#9d174d" }}>Additional Expense ✏️</th> */}
                                 {/* <th style={{ background: "#f3e8ff", color: "#6b21a8" }}>Day</th> */}
                                 <th>Outstanding Balance as of {endOfMonthLabel(month, year)}</th>
@@ -521,7 +543,7 @@ export default function ReportPage() {
                                             {/* ✏️ Rent Expense — editable override; auto-value shown as placeholder */}
                                             <td className="editable-cell" style={{ background: "#f0fdf4" }}>
                                                 {row.rentExpenseOverridden && <span title="Overridden" style={{ fontSize: "0.7rem", color: "#f59e0b" }}>✏️ </span>}
-                                                <input type="number" step="0.0001"
+                                                <input type="number" step="0.01"
                                                     placeholder={fmtCalc(row.rentExpenseForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.rentExpense}
@@ -534,7 +556,7 @@ export default function ReportPage() {
 
                                             {/* ✏️ Editable: Due for Month */}
                                             <td className="editable-cell" style={{ background: "#fefce8" }}>
-                                                <input type="number" step="0.0001"
+                                                <input type="number" step="0.01"
                                                     placeholder={fmtCalc(row.dueForMonth) ?? "auto"}
                                                     title="Leave blank to auto-calculate. Enter a value to override."
                                                     value={edit.due}
@@ -564,10 +586,16 @@ export default function ReportPage() {
                                             {/* ✏️ Editable: Prepaid Office Rent + Auto-Calc button */}
                                             <td className="editable-cell" style={{ background: "#eff6ff" }}>
                                                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                                    <input type="number" step="0.0001"
+                                                    <input type="number" step="0.01"
                                                         style={{ flex: 1 }}
                                                         value={edit.prepaid}
-                                                        onChange={e => handleEdit(key, "prepaid", e.target.value)} />
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            handleEdit(key, "prepaid", val);
+                                                            if (parseFloat(val) === 0 || val === "") {
+                                                                handleEdit(key, "cumulativeExpense", "0");
+                                                            }
+                                                        }} />
                                                     <button
                                                         onClick={() => calcPrepaid(row)}
                                                         title="Auto-calculate Prepaid Rent for this month"
@@ -580,6 +608,15 @@ export default function ReportPage() {
                                                         Calc
                                                     </button>
                                                 </div>
+                                            </td>
+
+                                            {/* Cumulative Expense */}
+                                            <td className="number" style={{ background: "#ecfdf5", fontWeight: 600 }}>
+                                                {fmtCalc(
+                                                    edit.cumulativeExpense !== undefined
+                                                        ? parseFloat(edit.cumulativeExpense) || 0
+                                                        : (row.cumulativeExpense ?? 0)
+                                                )}
                                             </td>
 
                                             {/* ✏️ Editable: Additional Expense */}
@@ -652,6 +689,7 @@ export default function ReportPage() {
                                 <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.dueDifferenceAsOf ?? 0), 0))}</td>
                                 <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.dueAsOf ?? 0), 0))}</td>
                                 <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.prepaidOfficeRent ?? 0), 0))}</td>
+                                <td className="number">{fmtCalc(filteredRows.reduce((s, r) => s + (r.cumulativeExpense ?? 0), 0))}</td>
                                 <td className="number" style={{ color: "#c4b5fd" }}>{fmtCalc(filteredRows.reduce((s, r) => s + (r.outstandingBalanceEndOfMonth ?? 0), 0))}</td>
                                 <td />{/* Action column */}
                             </tr>

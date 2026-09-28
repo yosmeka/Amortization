@@ -105,4 +105,7 @@ public class AmortizationReportRow {
     // === New: Rent Expense for Month − Due for Month ===
     // Uses rentExpenseForMonth (prorated in first month / merged in overlap month)
     private BigDecimal rentMinusDue;
+
+    // === Cumulative Expense next to Prepaid Office Rent ===
+    private BigDecimal cumulativeExpense;
 }

@@ -134,6 +134,7 @@ export interface AmortizationReportRow {
     rentExpenseAsOf: number;
     dueDifferenceAsOf: number;
     dueAsOf: number;
+    cumulativeExpense?: number;
 
 }
 
@@ -355,10 +356,13 @@ export async function fetchReport(month: number, year: number, category?: string
 
 export interface PrepaidSuggestionResponse {
     suggestedPrepaid: number;
+    cumulativeExpense?: number;
     alreadyFilled: boolean;
     filledMonth?: number;
     filledYear?: number;
     filledAmount?: number;
+    beyondPaymentPaidToDate?: boolean;
+    message?: string;
 }
 
 export async function fetchPrepaidSuggestion(leaseId: number, month: number, year: number, isStampDuty: boolean, isUtility = false): Promise<PrepaidSuggestionResponse> {
@@ -385,6 +389,7 @@ export async function saveEntry(
         rentExpenseForMonth?: number | null;  // null = auto-calculate
         dueForMonth?: number | null;
         prepaidOfficeRent?: number;
+        cumulativeExpense?: number;
         additionalExpense?: number;
         entryDay?: number | null;
     }
@@ -401,6 +406,7 @@ export async function saveEntry(
             rentExpenseForMonth: opts.rentExpenseForMonth ?? null,
             dueForMonth: opts.dueForMonth ?? null,
             prepaidOfficeRent: opts.prepaidOfficeRent ?? 0,
+            cumulativeExpense: opts.cumulativeExpense ?? 0,
             additionalExpense: opts.additionalExpense ?? 0,
             entryDay: opts.entryDay ?? null,
         }),
